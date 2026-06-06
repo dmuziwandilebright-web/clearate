@@ -1,0 +1,200 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Clearate Price Check - Undervalued</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700;800&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        body {
+            font-family: 'Public Sans', sans-serif;
+            background-color: #f7f9fb;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "on-tertiary": "#ffffff",
+                        "on-primary-fixed": "#131b2e",
+                        "outline-variant": "#c6c6cd",
+                        "surface-container-high": "#e6e8ea",
+                        "on-secondary-container": "#54647a",
+                        "inverse-surface": "#2d3133",
+                        "on-primary-container": "#7c839b",
+                        "surface": "#f7f9fb",
+                        "surface-bright": "#f7f9fb",
+                        "on-tertiary-container": "#98805d",
+                        "outline": "#76777d",
+                        "error-container": "#ffdad6",
+                        "tertiary-container": "#271901",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-surface": "#191c1e",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "on-secondary-fixed": "#0b1c30",
+                        "on-error-container": "#93000a",
+                        "surface-container-low": "#f2f4f6",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "tertiary": "#000000",
+                        "on-background": "#191c1e",
+                        "error": "#ba1a1a",
+                        "background": "#f7f9fb",
+                        "on-secondary": "#ffffff",
+                        "tertiary-fixed": "#fcdeb5",
+                        "surface-variant": "#e0e3e5",
+                        "primary-fixed-dim": "#bec6e0",
+                        "on-surface-variant": "#45464d",
+                        "on-tertiary-fixed-variant": "#574425",
+                        "inverse-on-surface": "#eff1f3",
+                        "secondary-fixed": "#d3e4fe",
+                        "tertiary-fixed-dim": "#dec29a",
+                        "surface-tint": "#565e74",
+                        "surface-container": "#eceef0",
+                        "on-primary": "#ffffff",
+                        "inverse-primary": "#bec6e0",
+                        "surface-container-lowest": "#ffffff",
+                        "primary-container": "#131b2e",
+                        "on-error": "#ffffff",
+                        "primary-fixed": "#dae2fd",
+                        "surface-dim": "#d8dadc",
+                        "secondary-container": "#d0e1fb",
+                        "primary": "#000000",
+                        "on-tertiary-fixed": "#271901",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "secondary": "#505f76",
+                        "warning": "#FFB800",
+                        "on-warning": "#271901"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "sm": "12px",
+                        "md": "16px",
+                        "lg": "24px",
+                        "base": "8px",
+                        "xs": "4px",
+                        "touch-target": "48px",
+                        "container-margin": "16px"
+                    },
+                    "fontSize": {
+                        "display-lg": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "stat-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-background min-h-screen flex flex-col">
+<!-- TopAppBar Component -->
+<header class="sticky top-0 z-50 flex justify-between items-center h-16 px-container-margin w-full transition-opacity duration-200 bg-primary"><button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-on-primary-fixed/10 transition-colors text-on-primary" aria-label="Go back">
+<span class="material-symbols-outlined" data-icon="arrow_back">arrow_back</span>
+</button>
+<div class="flex items-center gap-sm flex-1 justify-center">
+
+<h1 class="font-headline-md text-headline-md font-bold text-on-primary" style="opacity: 0;">Analysis Result</h1>
+</div>
+<button class="w-10 h-10 flex items-center justify-center rounded-full hover:bg-on-primary-fixed/10 transition-colors text-on-primary">
+<span class="material-symbols-outlined" data-icon="notifications">notifications</span>
+</button></header>
+<!-- Main Content Canvas -->
+<main class="flex-1 px-container-margin pt-lg pb-32">
+<!-- Header Text -->
+<div class="mb-lg">
+<p class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Analysis Result</p>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile text-on-surface mt-xs">Currency Evaluation</h2>
+</div>
+<!-- High Impact Verdict Card -->
+<section class="bg-warning rounded-xl p-lg mb-lg border border-warning/20 shadow-sm transition-transform active:scale-[0.98] duration-150" style="opacity: 1; transform: translateY(0px); transition: 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);">
+<div class="flex flex-col items-center text-center">
+<div class="bg-on-warning/10 p-md rounded-full mb-md">
+<span class="material-symbols-outlined text-[48px] text-on-warning" data-icon="warning" style="font-variation-settings: &quot;FILL&quot; 1;">warning</span>
+</div>
+<h3 class="font-display-lg text-display-lg text-on-warning mb-sm">UNDERVALUED</h3>
+<p class="font-body-lg text-body-lg text-on-warning leading-tight mb-xl">
+                    This price is very low. Check if the item is correct.
+                </p>
+<div class="w-full bg-on-warning/5 rounded-lg p-md flex flex-col gap-sm border border-on-warning/10">
+<div class="flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-warning/70">Fair Value</span>
+<span class="font-headline-md text-headline-md text-on-warning font-bold">$100.00</span>
+</div>
+<div class="h-px bg-on-warning/10 w-full"></div>
+<div class="flex justify-between items-center">
+<span class="font-label-md text-label-md text-on-warning/70">Being Offered</span>
+<span class="font-headline-md text-headline-md text-on-warning font-bold">$70.00</span>
+</div>
+</div>
+</div>
+</section>
+<!-- Insights Bento Grid -->
+<div class="grid grid-cols-2 gap-sm mb-lg">
+<div class="col-span-2 bg-surface-container-lowest border border-outline-variant rounded-xl p-md">
+<div class="flex items-center gap-sm mb-xs">
+
+
+</div>
+<div class="w-full bg-surface-container h-2 rounded-full overflow-hidden">
+<div class="bg-secondary-container h-full w-[92%]"></div>
+</div>
+
+</div>
+
+
+</div>
+<!-- Action Button -->
+<button class="w-full h-touch-target bg-primary-container text-on-primary flex items-center justify-center gap-sm rounded-xl font-headline-md text-headline-md shadow-md active:scale-95 transition-transform duration-150"><span class="material-symbols-outlined" data-icon="share">share</span>Share Price Check</button>
+<button class="w-full mt-sm h-touch-target bg-transparent border border-outline-variant text-on-surface-variant flex items-center justify-center gap-sm rounded-xl font-label-md text-label-md hover:bg-surface-container-low transition-colors">
+<span class="material-symbols-outlined" data-icon="report">report</span>
+            Report Incorrect Value
+        </button>
+</main>
+<!-- BottomNavBar Component -->
+
+<!-- Micro-interaction Script -->
+<script>
+        // Simple scale effect for the card on mount
+        document.addEventListener('DOMContentLoaded', () => {
+            const card = document.querySelector('section');
+            card.style.opacity = '0';
+            card.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                card.style.transition = 'all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+                card.style.opacity = '1';
+                card.style.transform = 'translateY(0)';
+            }, 100);
+        });
+    </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body></html>

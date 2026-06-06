@@ -1,0 +1,226 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Scan for Rates - Clearate</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "background": "#f7f9fb",
+                        "on-surface": "#191c1e",
+                        "secondary-container": "#d0e1fb",
+                        "on-secondary": "#ffffff",
+                        "secondary-fixed": "#d3e4fe",
+                        "outline-variant": "#c6c6cd",
+                        "surface-variant": "#e0e3e5",
+                        "primary-container": "#131b2e",
+                        "on-secondary-fixed": "#0b1c30",
+                        "surface-bright": "#f7f9fb",
+                        "on-background": "#191c1e",
+                        "surface-container-lowest": "#ffffff",
+                        "on-primary-container": "#7c839b",
+                        "surface-tint": "#565e74",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "inverse-on-surface": "#eff1f3",
+                        "on-error": "#ffffff",
+                        "inverse-surface": "#2d3133",
+                        "surface-container-highest": "#e0e3e5",
+                        "on-tertiary-fixed": "#271901",
+                        "secondary": "#505f76",
+                        "on-tertiary": "#ffffff",
+                        "on-secondary-container": "#54647a",
+                        "error-container": "#ffdad6",
+                        "tertiary-container": "#271901",
+                        "primary-fixed-dim": "#bec6e0",
+                        "on-tertiary-fixed-variant": "#574425",
+                        "surface-container-high": "#e6e8ea",
+                        "on-primary": "#ffffff",
+                        "tertiary-fixed": "#fcdeb5",
+                        "surface": "#f7f9fb",
+                        "outline": "#76777d",
+                        "primary-fixed": "#dae2fd",
+                        "surface-container-low": "#f2f4f6",
+                        "tertiary-fixed-dim": "#dec29a",
+                        "on-surface-variant": "#45464d",
+                        "on-error-container": "#93000a",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "surface-container": "#eceef0",
+                        "surface-dim": "#d8dadc",
+                        "tertiary": "#000000",
+                        "on-tertiary-container": "#98805d",
+                        "error": "#ba1a1a",
+                        "primary": "#000000",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "inverse-primary": "#bec6e0",
+                        "on-primary-fixed": "#131b2e"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "xl": "32px",
+                        "container-margin": "16px",
+                        "touch-target": "48px",
+                        "base": "8px",
+                        "sm": "12px",
+                        "md": "16px",
+                        "lg": "24px"
+                    },
+                    "fontFamily": {
+                        "headline-lg-mobile": ["Public Sans"],
+                        "headline-lg": ["Public Sans"],
+                        "body-lg": ["Public Sans"],
+                        "stat-lg": ["Public Sans"],
+                        "headline-md": ["Public Sans"],
+                        "label-md": ["Public Sans"],
+                        "body-md": ["Public Sans"],
+                        "display-lg": ["Public Sans"]
+                    },
+                    "fontSize": {
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                        "stat-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "display-lg": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .scanner-frame {
+            box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.6);
+        }
+        @keyframes scan-line {
+            0% { top: 0%; }
+            100% { top: 100%; }
+        }
+        .scan-line {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #ffffff, transparent);
+            position: absolute;
+            width: 100%;
+            animation: scan-line 2.5s ease-in-out infinite alternate;
+        }
+    </style>
+</head>
+<body class="bg-background text-on-surface min-h-screen flex flex-col">
+<!-- Top App Bar (Mapped from Shared Components JSON) -->
+<header class="fixed top-0 w-full z-50 bg-primary dark:bg-primary-container text-on-primary dark:text-on-primary-container flex justify-between items-center px-container-margin h-touch-target">
+<div class="flex items-center gap-4">
+<button class="hover:bg-white/10 transition-colors rounded-full p-2 active:opacity-80 transition-all duration-200">
+<span class="material-symbols-outlined text-on-primary">arrow_back</span>
+</button>
+<h1 class="font-headline-md text-headline-md-mobile text-on-primary">Scan for Rates</h1>
+</div>
+<button class="hover:bg-white/10 transition-colors rounded-full p-2 active:opacity-80 transition-all duration-200">
+<span class="material-symbols-outlined text-on-primary">help_outline</span>
+</button>
+</header>
+<!-- Main Viewport Area -->
+<main class="flex-grow flex flex-col pt-touch-target mb-20">
+<!-- Viewfinder Section -->
+<section class="relative flex-grow min-h-[400px] overflow-hidden bg-black flex items-center justify-center">
+<!-- Simulated Camera Feed Placeholder -->
+<div class="absolute inset-0 z-0">
+<img alt="Abstract technology background" class="w-full h-full object-cover opacity-80" data-alt="A cinematic, low-angle shot of a high-tech corporate office interior with soft glowing blue and white screens in the background. The lighting is moody and focused, with a shallow depth of field. The overall aesthetic is professional, clean, and dominated by deep navy and charcoal tones, reflecting a state-of-the-art fintech environment." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCorhId-LaLb2RnE0GIprgbJt9v0E3Vck0xZ2VJQRtrFXwYa3e4QZ97H9CrmabW48YA0zGySg-0nCIWi1igg4qossRX0KGZBygc0_J2xAYDlZBuIZwOlbFTPKeGBLDnCd4OEqitc-b4_oCmdJD7gbV2EyRp6Mxnnb8Bf3uxEHC8QlFbxm2rJ-iOisvcUkiCiuRBDvIyVmjs4QfDBIiYPY_SzI0fkIOWFmiuqvUv1GSHMdn2qw0X5UxEKxP6Vw0fUgQqrpkmE2IkhozA">
+</div>
+<!-- Scanner Overlay -->
+<div class="absolute inset-0 z-10 flex flex-col items-center justify-center p-md">
+<div class="relative w-64 h-64 sm:w-80 sm:h-80 border-2 border-white/50 rounded-xl overflow-hidden scanner-frame">
+<!-- Scanner Corner Accents -->
+<div class="absolute top-0 left-0 w-8 h-8 border-t-4 border-l-4 border-white rounded-tl-lg"></div>
+<div class="absolute top-0 right-0 w-8 h-8 border-t-4 border-r-4 border-white rounded-tr-lg"></div>
+<div class="absolute bottom-0 left-0 w-8 h-8 border-b-4 border-l-4 border-white rounded-bl-lg"></div>
+<div class="absolute bottom-0 right-0 w-8 h-8 border-b-4 border-r-4 border-white rounded-br-lg"></div>
+<!-- Animated Scan Line -->
+<div class="scan-line shadow-[0_0_15px_rgba(255,255,255,0.8)]"></div>
+</div>
+<!-- Guidance Text -->
+<div class="mt-lg text-center">
+<p class="font-label-md text-label-md text-white drop-shadow-md px-md py-xs bg-black/30 backdrop-blur-sm rounded-full">
+                        Align QR code within frame
+                    </p>
+</div>
+</div>
+<!-- Flashlight Toggle -->
+<div class="absolute bottom-md right-md z-20">
+<button class="w-touch-target h-touch-target flex items-center justify-center bg-white/20 backdrop-blur-md border border-white/30 rounded-full text-white hover:bg-white/30 transition-all active:scale-95" id="flashlight-toggle">
+<span class="material-symbols-outlined" id="flashlight-icon">flashlight_on</span>
+</button>
+</div>
+</section>
+<!-- Informational Section -->
+<section class="bg-surface px-container-margin py-lg border-t border-outline-variant">
+<div class="max-w-md mx-auto">
+<div class="flex items-center gap-sm mb-md">
+<span class="material-symbols-outlined text-primary">info</span>
+<h2 class="font-headline-md text-headline-md text-on-surface">How it works</h2>
+</div>
+<div class="space-y-md">
+<div class="flex items-start gap-md">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex-shrink-0 flex items-center justify-center">
+<span class="font-label-md text-label-md text-on-secondary-container">1</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">
+                            Ask another Clearate user to open their <strong>My QR</strong> screen.
+                        </p>
+</div>
+<div class="flex items-start gap-md">
+<div class="w-8 h-8 rounded-full bg-secondary-container flex-shrink-0 flex items-center justify-center">
+<span class="font-label-md text-label-md text-on-secondary-container">2</span>
+</div>
+<p class="font-body-md text-body-md text-on-surface-variant">
+                            Scan the displayed code to sync the latest verified currency exchange rates.
+                        </p>
+</div>
+<div class="p-md bg-secondary-fixed/30 rounded-xl border border-secondary-fixed">
+<p class="font-body-md text-body-md text-on-secondary-fixed-variant leading-relaxed">
+                            Scanning securely updates your local database with peer-verified financial truth, ensuring you always have the most competitive rates even when offline.
+                        </p>
+</div>
+</div>
+</div>
+</section>
+</main>
+<!-- Bottom Navigation Bar (Mapped from Shared Components JSON) -->
+
+<script>
+        // Simple flashlight toggle interaction
+        const flashlightBtn = document.getElementById('flashlight-toggle');
+        const flashlightIcon = document.getElementById('flashlight-icon');
+        let isFlashOn = false;
+
+        flashlightBtn.addEventListener('click', () => {
+            isFlashOn = !isFlashOn;
+            if (isFlashOn) {
+                flashlightIcon.innerText = 'flashlight_off';
+                flashlightBtn.classList.replace('bg-white/20', 'bg-white');
+                flashlightBtn.classList.replace('text-white', 'text-primary');
+            } else {
+                flashlightIcon.innerText = 'flashlight_on';
+                flashlightBtn.classList.replace('bg-white', 'bg-white/20');
+                flashlightBtn.classList.replace('text-primary', 'text-white');
+            }
+        });
+    </script>
+
+
+</body></html>

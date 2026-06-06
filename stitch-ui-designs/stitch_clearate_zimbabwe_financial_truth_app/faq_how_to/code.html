@@ -1,0 +1,300 @@
+<!DOCTYPE html><html lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .accordion-content {
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.3s ease-out, padding 0.3s ease;
+        }
+        .accordion-item.active .accordion-content {
+            max-height: 500px;
+            padding-top: 12px;
+            padding-bottom: 24px;
+        }
+        .accordion-item.active .chevron {
+            transform: rotate(180deg);
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-container": "#d0e1fb",
+                        "on-surface-variant": "#45464d",
+                        "error": "#ba1a1a",
+                        "on-tertiary-fixed": "#271901",
+                        "tertiary-fixed": "#fcdeb5",
+                        "primary": "#000000",
+                        "on-tertiary-fixed-variant": "#574425",
+                        "primary-container": "#131b2e",
+                        "on-tertiary-container": "#98805d",
+                        "inverse-surface": "#2d3133",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "secondary": "#505f76",
+                        "on-background": "#191c1e",
+                        "surface-container-high": "#e6e8ea",
+                        "on-error": "#ffffff",
+                        "inverse-on-surface": "#eff1f3",
+                        "surface-variant": "#e0e3e5",
+                        "surface-tint": "#565e74",
+                        "outline": "#76777d",
+                        "on-error-container": "#93000a",
+                        "on-surface": "#191c1e",
+                        "primary-fixed-dim": "#bec6e0",
+                        "surface-dim": "#d8dadc",
+                        "on-secondary-container": "#54647a",
+                        "inverse-primary": "#bec6e0",
+                        "on-secondary": "#ffffff",
+                        "error-container": "#ffdad6",
+                        "on-primary": "#ffffff",
+                        "tertiary": "#000000",
+                        "background": "#f7f9fb",
+                        "secondary-fixed": "#d3e4fe",
+                        "on-secondary-fixed-variant": "#38485d",
+                        "primary-fixed": "#dae2fd",
+                        "surface-container": "#eceef0",
+                        "on-primary-fixed": "#131b2e",
+                        "tertiary-container": "#271901",
+                        "on-secondary-fixed": "#0b1c30",
+                        "surface-container-low": "#f2f4f6",
+                        "outline-variant": "#c6c6cd",
+                        "tertiary-fixed-dim": "#dec29a",
+                        "surface-container-highest": "#e0e3e5",
+                        "surface-bright": "#f7f9fb",
+                        "on-primary-container": "#7c839b",
+                        "on-tertiary": "#ffffff",
+                        "surface": "#f7f9fb"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xl": "32px",
+                        "sm": "12px",
+                        "lg": "24px",
+                        "touch-target": "48px",
+                        "xs": "4px",
+                        "md": "16px",
+                        "container-margin": "16px",
+                        "base": "8px"
+                    },
+                    "fontFamily": {
+                        "headline-lg": ["Public Sans"],
+                        "headline-md": ["Public Sans"],
+                        "label-md": ["Public Sans"],
+                        "stat-lg": ["Public Sans"],
+                        "body-md": ["Public Sans"],
+                        "headline-lg-mobile": ["Public Sans"],
+                        "display-lg": ["Public Sans"],
+                        "body-lg": ["Public Sans"]
+                    },
+                    "fontSize": {
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "stat-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "display-lg": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}]
+                    }
+                },
+            },
+        }
+    </script>
+</head>
+<body class="bg-background text-on-background font-body-md min-h-screen pb-32">
+<!-- Top App Bar -->
+<header class="bg-primary dark:bg-primary-container text-on-primary dark:text-on-primary-container fixed top-0 w-full z-50 h-touch-target flex items-center px-container-margin">
+<button class="mr-md active:scale-95 transition-transform">
+<span class="material-symbols-outlined">arrow_back</span>
+</button>
+<h1 class="font-headline-md-mobile text-headline-md-mobile font-bold">FAQ</h1>
+</header>
+<!-- Main Content Canvas -->
+<main class="pt-20 px-container-margin max-w-2xl mx-auto">
+<!-- Intro Hero -->
+<section class="mb-xl">
+<div class="rounded-xl overflow-hidden relative h-48 mb-lg bg-primary-container flex items-center justify-center">
+<div class="absolute inset-0 opacity-40">
+
+</div>
+<div class="relative z-10 text-center px-md">
+<span class="material-symbols-outlined text-on-primary text-6xl mb-xs">help_center</span>
+<p class="text-on-primary font-headline-md-mobile text-headline-md-mobile">Financial Truth, Simplified.</p>
+</div>
+</div>
+<p class="text-on-surface-variant font-body-lg text-body-lg mb-lg">Clearate is designed to give you clarity on Zimbabwe's exchange rates. Use this guide to master the tools available.</p>
+</section>
+<!-- FAQ Accordion -->
+<div class="space-y-sm">
+<!-- Question 1 -->
+<div class="accordion-item bg-surface-container-lowest border border-outline-variant rounded-xl transition-all active">
+<button class="w-full flex items-center justify-between p-md text-left focus:outline-none" onclick="toggleAccordion(this)">
+<span class="font-headline-md text-headline-md text-primary pr-md">How do I use Price Check?</span>
+<span class="material-symbols-outlined chevron transition-transform text-outline">expand_more</span>
+</button>
+<div class="accordion-content px-md">
+<div class="space-y-md text-on-surface-variant border-t border-outline-variant pt-md">
+<p class="">Price Check helps you verify if a retailer's price matches official rates:</p>
+<ol class="list-decimal list-inside space-y-xs font-body-md">
+<li class="">Enter the <span class="font-bold">USD Price</span> of the item.</li>
+<li class="">Enter the <span class="font-bold">ZAR or ZiG Price</span> being charged by the shop.</li>
+<li class="">Clearate will automatically compare the two using current RBZ data.</li>
+</ol>
+<div class="grid grid-cols-1 gap-xs mt-md">
+<div class="flex items-center gap-sm p-sm bg-green-50 rounded-lg text-green-800">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1;">check_circle</span>
+<span class="text-label-md font-label-md uppercase">Fair</span>
+<span class="text-body-md">— The price is within the legal limit.</span>
+</div>
+<div class="flex items-center gap-sm p-sm bg-red-50 rounded-lg text-error">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1;">warning</span>
+<span class="text-label-md font-label-md uppercase">Overcharged</span>
+<span class="text-body-md">— The rate exceeds official guidelines.</span>
+</div>
+<div class="flex items-center gap-sm p-sm bg-blue-50 rounded-lg text-on-secondary-container">
+<span class="material-symbols-outlined" style="font-variation-settings: &quot;FILL&quot; 1;">info</span>
+<span class="text-label-md font-label-md uppercase">Undervalued</span>
+<span class="text-body-md">— The price is lower than expected.</span>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- Question 2 -->
+<div class="accordion-item bg-surface-container-lowest border border-outline-variant rounded-xl transition-all">
+<button class="w-full flex items-center justify-between p-md text-left focus:outline-none" onclick="toggleAccordion(this)">
+<span class="font-headline-md text-headline-md text-primary pr-md">How do I share rates without internet?</span>
+<span class="material-symbols-outlined chevron transition-transform text-outline">expand_more</span>
+</button>
+<div class="accordion-content px-md">
+<div class="space-y-md text-on-surface-variant border-t border-outline-variant pt-md">
+<p class="">Clearate uses <span class="font-bold">QR Sync</span> for secure, offline sharing between devices:</p>
+<ul class="space-y-sm">
+<li class="flex gap-md">
+<span class="material-symbols-outlined text-primary">qr_code_2</span>
+<span class=""><span class="font-bold">Show QR:</span> Generate a code on a phone with updated rates.</span>
+</li>
+<li class="flex gap-md">
+<span class="material-symbols-outlined text-primary">qr_code_scanner</span>
+<span class=""><span class="font-bold">Scan:</span> Use another phone's camera to read the code and sync data.</span>
+</li>
+</ul>
+<p class="text-sm bg-surface-container-low p-sm rounded-lg border-l-4 border-primary">This method is safe, instant, and requires zero data usage or cellular network.</p>
+</div>
+</div>
+</div>
+<!-- Question 3 -->
+<div class="accordion-item bg-surface-container-lowest border border-outline-variant rounded-xl transition-all">
+<button class="w-full flex items-center justify-between p-md text-left focus:outline-none" onclick="toggleAccordion(this)">
+<span class="font-headline-md text-headline-md text-primary pr-md">Where do the rates come from?</span>
+<span class="material-symbols-outlined chevron transition-transform text-outline">expand_more</span>
+</button>
+<div class="accordion-content px-md">
+<div class="space-y-md text-on-surface-variant border-t border-outline-variant pt-md">
+<p class="">Clearate values transparency. All exchange rate data is sourced directly from the <span class="font-bold">Reserve Bank of Zimbabwe (RBZ)</span> via the authorized <span class="font-bold">ZimRate API</span>.</p>
+<p class="">This ensures you are seeing the official legal benchmark for all your transactions.</p>
+</div>
+</div>
+</div>
+<!-- Question 4 -->
+<div class="accordion-item bg-surface-container-lowest border border-outline-variant rounded-xl transition-all">
+<button class="w-full flex items-center justify-between p-md text-left focus:outline-none" onclick="toggleAccordion(this)">
+<span class="font-headline-md text-headline-md text-primary pr-md">The app is showing an old rate — is something wrong?</span>
+<span class="material-symbols-outlined chevron transition-transform text-outline">expand_more</span>
+</button>
+<div class="accordion-content px-md">
+<div class="space-y-md text-on-surface-variant border-t border-outline-variant pt-md">
+<p class="">No, your app is functioning correctly. Clearate <span class="font-bold">caches</span> (saves) the last known rate so you can use it offline.</p>
+<p class="">To update the rate, simply pull down on the home screen while connected to the internet (WiFi or Mobile Data). The "Last Updated" timestamp will confirm when the data is fresh.</p>
+</div>
+</div>
+</div>
+<!-- Question 5 -->
+<div class="accordion-item bg-surface-container-lowest border border-outline-variant rounded-xl transition-all">
+<button class="w-full flex items-center justify-between p-md text-left focus:outline-none" onclick="toggleAccordion(this)">
+<span class="font-headline-md text-headline-md text-primary pr-md">My phone says the APK is unsafe — should I install it?</span>
+<span class="material-symbols-outlined chevron transition-transform text-outline">expand_more</span>
+</button>
+<div class="accordion-content px-md">
+<div class="space-y-md text-on-surface-variant border-t border-outline-variant pt-md">
+<p class="">This is a standard Android warning for apps downloaded outside of the Google Play Store (sideloading).</p>
+<p class="">Clearate is open-source and verified for safety. As long as you downloaded the APK from our <span class="font-bold">official website</span> or GitHub repository, it is completely safe to install. Simply select "Install Anyway" or "Trust this source" in your settings.</p>
+</div>
+</div>
+</div>
+<!-- Question 6 -->
+<div class="accordion-item bg-surface-container-lowest border border-outline-variant rounded-xl transition-all">
+<button class="w-full flex items-center justify-between p-md text-left focus:outline-none" onclick="toggleAccordion(this)">
+<span class="font-headline-md text-headline-md text-primary pr-md">Does Clearate work on any network?</span>
+<span class="material-symbols-outlined chevron transition-transform text-outline">expand_more</span>
+</button>
+<div class="accordion-content px-md">
+<div class="space-y-md text-on-surface-variant border-t border-outline-variant pt-md">
+<p class="">Yes. Clearate is network-agnostic. It works seamlessly on <span class="font-bold">Econet, NetOne, Telecel</span>, and any local <span class="font-bold">WiFi</span> connection. It is optimized to use minimal data when checking for updates.</p>
+</div>
+</div>
+</div>
+<!-- Question 7 -->
+<div class="accordion-item bg-surface-container-lowest border border-outline-variant rounded-xl transition-all">
+<button class="w-full flex items-center justify-between p-md text-left focus:outline-none" onclick="toggleAccordion(this)">
+<span class="font-headline-md text-headline-md text-primary pr-md">Does Clearate cost anything?</span>
+<span class="material-symbols-outlined chevron transition-transform text-outline">expand_more</span>
+</button>
+<div class="accordion-content px-md">
+<div class="space-y-md text-on-surface-variant border-t border-outline-variant pt-md">
+<p class="">Clearate is currently <span class="font-bold">100% Free</span> to use for all features. Our mission is to provide financial truth to everyone.</p>
+<p class="">In the future, we may introduce a <span class="font-bold">Pro Tier</span> for business power users with advanced tracking and multi-currency reporting, but basic rate checking will always remain free.</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Footer Visual -->
+<div class="mt-xl text-center">
+<img class="w-full h-40 object-cover rounded-xl grayscale opacity-20 mb-md" data-alt="A clean, minimalist monochrome photograph of a modern financial office building facade with glass windows. The lighting is bright and airy, suggesting transparency and trust. The overall mood is professional, corporate, and secure, fitting the financial truth brand identity of Clearate. High-end architectural photography style." src="https://lh3.googleusercontent.com/aida-public/AB6AXuCwtl2WI3qGRUGTtnJXs6TrVLhcZ4Smh9yQGz4GpfUx9HoIlcPhJ3ispPShk4f6lyCmclGRm1m_l-0fprHrNnMt-aGxXOQJlYdDTG0Z4dMF7fBxn14Odl8PikRKK3yJtBdcEp3Yj6ytdI5gEgS7T0CKSYLYmBZwp2IO_AxZ37rjEZ8nk6qda1xoIkn7KU4sxYzxHAo8QdJ3InN0DWbuKetbjcAALfrM5_BcVHcFCSyIvAcAFYJ_nN1Ix68Y69qfolDiYqm96UeQDHwd">
+<p class="text-outline font-label-md text-label-md uppercase tracking-widest">Zimbabwe Financial Truth v1.0</p>
+</div>
+</main>
+<!-- Bottom Nav Bar -->
+
+<script>
+        function toggleAccordion(button) {
+            const item = button.parentElement;
+            const isActive = item.classList.contains('active');
+            
+            // Close all items
+            document.querySelectorAll('.accordion-item').forEach(el => {
+                el.classList.remove('active');
+            });
+
+            // If it wasn't active, open it
+            if (!isActive) {
+                item.classList.add('active');
+            }
+        }
+
+        // Initialize first item
+        document.addEventListener('DOMContentLoaded', () => {
+            const firstItem = document.querySelector('.accordion-item');
+            if(firstItem) firstItem.classList.add('active');
+        });
+    </script>
+
+
+</body></html>

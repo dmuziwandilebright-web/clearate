@@ -1,0 +1,239 @@
+<!DOCTYPE html><html class="light" lang="en" style=""><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0" name="viewport">
+<title>Clearate - More</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "inverse-on-surface": "#eff1f3",
+                        "surface-tint": "#565e74",
+                        "secondary-container": "#d0e1fb",
+                        "on-surface-variant": "#45464d",
+                        "tertiary": "#000000",
+                        "surface-container-highest": "#e0e3e5",
+                        "outline-variant": "#c6c6cd",
+                        "on-tertiary-fixed-variant": "#574425",
+                        "on-secondary-container": "#54647a",
+                        "primary-fixed-dim": "#bec6e0",
+                        "surface": "#f7f9fb",
+                        "primary": "#000000",
+                        "surface-container-high": "#e6e8ea",
+                        "primary-container": "#131b2e",
+                        "tertiary-container": "#271901",
+                        "surface-dim": "#d8dadc",
+                        "surface-container-lowest": "#ffffff",
+                        "secondary-fixed-dim": "#b7c8e1",
+                        "primary-fixed": "#dae2fd",
+                        "outline": "#76777d",
+                        "inverse-surface": "#2d3133",
+                        "surface-variant": "#e0e3e5",
+                        "on-tertiary": "#ffffff",
+                        "surface-container": "#eceef0",
+                        "on-primary-container": "#7c839b",
+                        "on-surface": "#191c1e",
+                        "on-primary-fixed": "#131b2e",
+                        "on-error": "#ffffff",
+                        "background": "#f7f9fb",
+                        "on-primary": "#ffffff",
+                        "on-tertiary-fixed": "#271901",
+                        "surface-bright": "#f7f9fb",
+                        "tertiary-fixed": "#fcdeb5",
+                        "on-tertiary-container": "#98805d",
+                        "surface-container-low": "#f2f4f6",
+                        "on-primary-fixed-variant": "#3f465c",
+                        "on-secondary-fixed": "#0b1c30",
+                        "on-error-container": "#93000a",
+                        "inverse-primary": "#bec6e0",
+                        "secondary-fixed": "#d3e4fe",
+                        "tertiary-fixed-dim": "#dec29a",
+                        "on-secondary": "#ffffff",
+                        "on-background": "#191c1e",
+                        "error-container": "#ffdad6",
+                        "secondary": "#505f76",
+                        "error": "#ba1a1a",
+                        "on-secondary-fixed-variant": "#38485d"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "xs": "4px",
+                        "touch-target": "48px",
+                        "lg": "24px",
+                        "container-margin": "16px",
+                        "md": "16px",
+                        "base": "8px",
+                        "sm": "12px",
+                        "xl": "32px"
+                    },
+                    "fontFamily": {
+                        "headline-md": ["Public Sans"],
+                        "headline-lg": ["Public Sans"],
+                        "display-lg": ["Public Sans"],
+                        "label-md": ["Public Sans"],
+                        "headline-lg-mobile": ["Public Sans"],
+                        "stat-lg": ["Public Sans"],
+                        "body-md": ["Public Sans"],
+                        "body-lg": ["Public Sans"]
+                    },
+                    "fontSize": {
+                        "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                        "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                        "display-lg": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                        "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                        "stat-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                        "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}]
+                    }
+                }
+            }
+        }
+    </script>
+<style>
+        body { font-family: 'Public Sans', sans-serif; }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .active-tab-indicator {
+            transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body class="bg-background text-on-background min-h-screen pb-24">
+<!-- Top App Bar -->
+<header class="bg-primary flex justify-between items-center px-container-margin h-touch-target w-full z-50 fixed top-0 left-0">
+<div class="flex items-center gap-base">
+<span class="material-symbols-outlined text-on-primary" data-icon="account_balance_wallet">account_balance_wallet</span>
+<h1 class="text-headline-md font-headline-md font-bold text-on-primary">Clearate</h1>
+</div>
+<button class="hover:opacity-90 active:scale-95 transition-transform duration-200">
+<span class="material-symbols-outlined text-on-primary" data-icon="sync">sync</span>
+</button>
+</header>
+<!-- Main Content -->
+<main class="pt-20 px-container-margin max-w-2xl mx-auto">
+<!-- Brand Section -->
+<section class="flex flex-col items-center py-xl space-y-sm">
+<div class="w-24 h-24 bg-surface-container-lowest rounded-xl flex items-center justify-center border border-outline-variant overflow-hidden shadow-sm">
+<img alt="Clearate Logo" class="w-20 h-20 object-contain" src="https://lh3.googleusercontent.com/aida/AP1WRLuB9RxFNwFOizGtqZG3NxHNTLXFO-fugj0xuplfsTVbkKDVF2YtDbpCQm-r-VOXqaEm869YWO_uJSHn0Z7sqLpDLQ6YhtGXjl3R81aIRhe22aeQ6ucGTfjaPSglwx5PBhXeyYAHD_Yvfco52J3Ax36UYueL2FlrZlS7PSgBzHhrGW6WVqt2woAnNd1jVVYZAKOI-gjUix8eguaFNSnXe0dZENZoNJRuMxEcdAfLVyrhqU0Z6uGb_o2nA41D">
+</div>
+<div class="text-center">
+<h2 class="text-headline-lg-mobile font-headline-lg-mobile text-on-surface">Financial Truth</h2>
+<p class="text-body-md font-body-md text-on-surface-variant max-w-xs mx-auto">Providing clarity in a volatile world through objective currency data and transparent rates.</p>
+</div>
+</section>
+<!-- Menu Groups -->
+<div class="space-y-lg">
+<!-- Preferences & Help -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
+<!-- Settings -->
+
+
+<!-- Support -->
+<button class="w-full flex items-center justify-between px-md h-touch-target hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-secondary" data-icon="help_center">help_center</span>
+<span class="text-body-lg font-body-lg text-on-surface">Support</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:translate-x-1 transition-transform" data-icon="chevron_right">chevron_right</span>
+</button>
+</div>
+<!-- Application Info -->
+<div class="bg-surface-container-lowest rounded-xl border border-outline-variant overflow-hidden">
+<!-- About -->
+<button class="w-full flex items-center justify-between px-md h-touch-target hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-secondary" data-icon="info">info</span>
+<span class="text-body-lg font-body-lg text-on-surface">About</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:translate-x-1 transition-transform" data-icon="chevron_right">chevron_right</span>
+</button><div class="h-px bg-outline-variant mx-md"></div><button class="w-full flex items-center justify-between px-md h-touch-target hover:bg-surface-container-low transition-colors group"><div class="flex items-center gap-md"><span class="material-symbols-outlined text-secondary" data-icon="help_outline">help_outline</span><span class="text-body-lg font-body-lg text-on-surface">FAQ</span></div><span class="material-symbols-outlined text-outline-variant group-hover:translate-x-1 transition-transform" data-icon="chevron_right">chevron_right</span></button>
+<div class="h-px bg-outline-variant mx-md"></div>
+<!-- Legal -->
+<button class="w-full flex items-center justify-between px-md h-touch-target hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-secondary" data-icon="gavel">gavel</span>
+<span class="text-body-lg font-body-lg text-on-surface">Legal</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:translate-x-1 transition-transform" data-icon="chevron_right">chevron_right</span>
+</button><div class="h-px bg-outline-variant mx-md"></div>
+<button class="w-full flex items-center justify-between px-md h-touch-target hover:bg-surface-container-low transition-colors group">
+<div class="flex items-center gap-md">
+<span class="material-symbols-outlined text-secondary" data-icon="database">database</span>
+<span class="text-body-lg font-body-lg text-on-surface">Rate Source</span>
+</div>
+<span class="material-symbols-outlined text-outline-variant group-hover:translate-x-1 transition-transform" data-icon="chevron_right">chevron_right</span>
+</button>
+</div><div class="text-center py-xs"></div>
+<!-- Footer Meta -->
+<div class="text-center py-md">
+<p class="text-label-md font-label-md text-on-surface-variant opacity-60">Version 1.0 (Build 882)</p>
+<p class="text-label-md font-label-md text-on-surface-variant opacity-60">© 2026 Clearate Financial Technologies</p>
+</div>
+</div>
+</main>
+<!-- Bottom Navigation Bar -->
+<nav class="fixed bottom-0 left-0 w-full z-50 flex justify-around items-center px-sm py-xs h-16 bg-surface-container-lowest border-t border-outline-variant">
+<!-- Rates -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:bg-surface-container-high transition-all duration-150 rounded-xl scale-98" href="#">
+<span class="material-symbols-outlined" data-icon="trending_up">trending_up</span>
+<span class="text-label-md font-label-md">Rates</span>
+</a>
+<!-- Verdict -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:bg-surface-container-high transition-all duration-150 rounded-xl scale-98" href="#">
+<span class="material-symbols-outlined" data-icon="gavel">gavel</span>
+<span class="text-label-md font-label-md">Price Check</span>
+</a>
+<!-- Converter -->
+<a class="flex flex-col items-center justify-center text-on-surface-variant px-4 py-1 hover:bg-surface-container-high transition-all duration-150 rounded-xl scale-98" href="#">
+<span class="material-symbols-outlined" data-icon="currency_exchange">currency_exchange</span>
+<span class="text-label-md font-label-md">Converter</span>
+</a>
+<!-- More (Active) -->
+<a class="flex flex-col items-center justify-center bg-secondary-fixed text-on-secondary-fixed rounded-xl px-4 py-1 transition-all duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="more_horiz" style="font-variation-settings: &quot;FILL&quot; 1;">more_horiz</span>
+<span class="text-label-md font-label-md">More</span>
+</a>
+</nav>
+<script>
+        // Simple ripple effect or interaction feedback
+        document.querySelectorAll('button').forEach(button => {
+            button.addEventListener('mousedown', function() {
+                this.classList.add('scale-98', 'opacity-80');
+            });
+            button.addEventListener('mouseup', function() {
+                this.classList.remove('scale-98', 'opacity-80');
+            });
+            button.addEventListener('mouseleave', function() {
+                this.classList.remove('scale-98', 'opacity-80');
+            });
+        });
+    </script>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+</body></html>

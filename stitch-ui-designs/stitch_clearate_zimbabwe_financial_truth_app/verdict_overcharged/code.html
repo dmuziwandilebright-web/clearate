@@ -1,0 +1,197 @@
+<!DOCTYPE html><html class="light" lang="en"><head>
+<meta charset="utf-8">
+<meta content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" name="viewport">
+<title>Clearate - Overcharged Price Check</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet">
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+            "on-tertiary": "#ffffff",
+            "on-primary-fixed": "#131b2e",
+            "outline-variant": "#c6c6cd",
+            "surface-container-high": "#e6e8ea",
+            "on-secondary-container": "#54647a",
+            "inverse-surface": "#2d3133",
+            "on-primary-container": "#7c839b",
+            "surface": "#f7f9fb",
+            "surface-bright": "#f7f9fb",
+            "on-tertiary-container": "#98805d",
+            "outline": "#76777d",
+            "error-container": "#ffdad6",
+            "tertiary-container": "#271901",
+            "surface-container-highest": "#e0e3e5",
+            "on-surface": "#191c1e",
+            "on-secondary-fixed-variant": "#38485d",
+            "on-secondary-fixed": "#0b1c30",
+            "on-error-container": "#93000a",
+            "surface-container-low": "#f2f4f6",
+            "secondary-fixed-dim": "#b7c8e1",
+            "tertiary": "#000000",
+            "on-background": "#191c1e",
+            "error": "#ba1a1a",
+            "background": "#f7f9fb",
+            "on-secondary": "#ffffff",
+            "tertiary-fixed": "#fcdeb5",
+            "surface-variant": "#e0e3e5",
+            "primary-fixed-dim": "#bec6e0",
+            "on-surface-variant": "#45464d",
+            "on-tertiary-fixed-variant": "#574425",
+            "inverse-on-surface": "#eff1f3",
+            "secondary-fixed": "#d3e4fe",
+            "tertiary-fixed-dim": "#dec29a",
+            "surface-tint": "#565e74",
+            "surface-container": "#eceef0",
+            "on-primary": "#ffffff",
+            "inverse-primary": "#bec6e0",
+            "surface-container-lowest": "#ffffff",
+            "primary-container": "#131b2e",
+            "on-error": "#ffffff",
+            "primary-fixed": "#dae2fd",
+            "surface-dim": "#d8dadc",
+            "secondary-container": "#d0e1fb",
+            "primary": "#000000",
+            "on-tertiary-fixed": "#271901",
+            "on-primary-fixed-variant": "#3f465c",
+            "secondary": "#505f76"
+          },
+          "borderRadius": {
+            "DEFAULT": "0.25rem",
+            "lg": "0.5rem",
+            "xl": "0.75rem",
+            "full": "9999px"
+          },
+          "spacing": {
+            "xl": "32px",
+            "sm": "12px",
+            "md": "16px",
+            "lg": "24px",
+            "base": "8px",
+            "xs": "4px",
+            "touch-target": "48px",
+            "container-margin": "16px"
+          },
+          "fontFamily": {
+            "display-lg": ["Public Sans"],
+            "stat-lg": ["Public Sans"],
+            "label-md": ["Public Sans"],
+            "headline-lg-mobile": ["Public Sans"],
+            "body-lg": ["Public Sans"],
+            "body-md": ["Public Sans"],
+            "headline-lg": ["Public Sans"],
+            "headline-md": ["Public Sans"]
+          },
+          "fontSize": {
+            "display-lg": ["40px", { "lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "stat-lg": ["36px", { "lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700" }],
+            "label-md": ["14px", { "lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600" }],
+            "headline-lg-mobile": ["24px", { "lineHeight": "32px", "fontWeight": "700" }],
+            "body-lg": ["18px", { "lineHeight": "28px", "fontWeight": "400" }],
+            "body-md": ["16px", { "lineHeight": "24px", "fontWeight": "400" }],
+            "headline-lg": ["32px", { "lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700" }],
+            "headline-md": ["20px", { "lineHeight": "28px", "fontWeight": "600" }]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    body { font-family: 'Public Sans', sans-serif; }
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  </style>
+</head>
+<body class="bg-surface text-on-surface flex flex-col min-h-screen">
+<!-- TopAppBar -->
+<header class="docked full-width top-0 z-50 flex justify-between items-center h-16 px-container-margin w-full bg-primary fixed"><div class="flex items-center gap-md"><button class="material-symbols-outlined text-on-primary hover:bg-white/10 p-2 rounded-full transition-colors flex items-center justify-center" aria-label="Go back">arrow_back</button><span class="material-symbols-outlined text-on-primary" data-icon="account_balance_wallet">account_balance_wallet</span><h1 class="font-headline-md text-headline-md font-bold text-on-primary">Clearate</h1></div></header>
+<!-- Main Canvas -->
+<main class="flex-grow px-container-margin py-lg flex flex-col gap-lg pt-[64px]">
+<!-- Hero Alert Card -->
+<div class="bg-error text-on-error rounded-xl p-lg flex flex-col items-center text-center shadow-lg transform transition-all duration-300 hover:scale-[1.01]" style="opacity: 1; transform: translateY(0px); transition: 0.6s cubic-bezier(0.23, 1, 0.32, 1);">
+<div class="bg-white/20 rounded-full p-md mb-md">
+<span class="material-symbols-outlined text-[64px]" data-icon="cancel" style="font-variation-settings: &quot;FILL&quot; 0, &quot;wght&quot; 700;">cancel</span>
+</div>
+<h2 class="font-headline-lg-mobile text-headline-lg-mobile mb-sm uppercase tracking-wider">OVERCHARGED</h2>
+<p class="font-body-lg text-body-lg opacity-90 leading-tight">
+        You are being asked for too much. You are being overcharged by <span class="font-bold">R3.50</span>.
+      </p>
+</div>
+<!-- Breakdown Bento Card -->
+<div class="bg-surface-container-lowest border border-outline-variant rounded-xl p-lg">
+<h3 class="font-label-md text-label-md text-on-surface-variant uppercase mb-md">Price Comparison</h3>
+<div class="grid grid-cols-1 gap-lg">
+<!-- Fair Price -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-sm">
+<div class="w-2 h-12 bg-on-secondary-container rounded-full"></div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant">Fair Price</p>
+<p class="font-stat-lg text-stat-lg text-on-surface">R18.50</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="check_circle">check_circle</span>
+</div>
+<div class="h-px bg-outline-variant w-full"></div>
+<!-- Shop Price -->
+<div class="flex items-center justify-between">
+<div class="flex items-center gap-sm">
+<div class="w-2 h-12 bg-error rounded-full"></div>
+<div>
+<p class="font-label-md text-label-md text-on-surface-variant">Shop Price</p>
+<p class="font-stat-lg text-stat-lg text-error">R22.00</p>
+</div>
+</div>
+<span class="material-symbols-outlined text-error" data-icon="trending_up">trending_up</span>
+</div>
+</div>
+</div>
+<!-- Info Banner -->
+<div class="bg-secondary-container rounded-xl p-md flex gap-md items-start">
+<span class="material-symbols-outlined text-on-secondary-container" data-icon="info">info</span>
+<p class="font-body-md text-body-md text-on-secondary-container">Based on today's official RBZ interbank rate.</p>
+</div>
+<!-- Action Button -->
+<button aria-label="Share Price Check on WhatsApp" class="mt-auto w-full bg-[#25D366] text-white flex items-center justify-center gap-md h-touch-target rounded-xl font-bold shadow-sm active:scale-95 transition-transform">
+<span class="material-symbols-outlined" data-icon="share">share</span>
+<span class="font-body-lg text-body-lg">Share Price Check</span>
+</button>
+</main>
+<!-- BottomNavBar -->
+
+<!-- Extra Bottom Padding for Fixed Nav -->
+<div class="h-20 w-full shrink-0"></div>
+<script>
+    // Micro-interaction for the alert card
+    document.addEventListener('DOMContentLoaded', () => {
+      const alertCard = document.querySelector('.bg-error');
+      // Gentle entry animation
+      alertCard.style.opacity = '0';
+      alertCard.style.transform = 'translateY(20px)';
+      
+      setTimeout(() => {
+        alertCard.style.transition = 'all 0.6s cubic-bezier(0.23, 1, 0.32, 1)';
+        alertCard.style.opacity = '1';
+        alertCard.style.transform = 'translateY(0)';
+      }, 100);
+    });
+  </script>
+
+
+
+
+
+
+
+
+
+
+
+
+</body></html>
