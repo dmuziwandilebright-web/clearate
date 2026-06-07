@@ -15,6 +15,13 @@ class HomeShell extends StatefulWidget {
 }
 
 class _HomeShellState extends State<HomeShell> {
+  static const _tabs = <Widget>[
+    RatesScreen(),
+    VerdictScreen(),
+    ConverterScreen(),
+    MoreScreen(),
+  ];
+
   int _index = 0;
 
   @override
@@ -23,106 +30,215 @@ class _HomeShellState extends State<HomeShell> {
 
     return Scaffold(
       appBar: AppBar(
-        toolbarHeight: 48,
         backgroundColor: theme.colorScheme.primary,
         foregroundColor: theme.colorScheme.onPrimary,
+        toolbarHeight: 56,
         titleSpacing: 16,
-        leadingWidth: 0,
-        leading: const SizedBox.shrink(),
-        title: Row(
-          children: [
-            Icon(
-              Icons.account_balance_wallet,
-              color: theme.colorScheme.onPrimary,
-              size: 24,
-            ),
-            const SizedBox(width: 8),
-            Text(
-              'Clearate',
-              style: theme.textTheme.headlineMd.copyWith(
-                color: theme.colorScheme.onPrimary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
+        title: const _BrandTitle(),
         actions: [
           IconButton(
             onPressed: () => AppScope.of(context).ratesController.forceRefresh(),
-            icon: Icon(
-              Icons.sync,
-              color: theme.colorScheme.onPrimary,
+            icon: const Icon(Icons.sync),
+            tooltip: 'Refresh rates',
+          ),
+          const SizedBox(width: 4),
+        ],
+      ),
+      body: Stack(
+        children: [
+          for (var i = 0; i < _tabs.length; i++)
+            IgnorePointer(
+              ignoring: i != _index,
+              child: AnimatedOpacity(
+                opacity: i == _index ? 1 : 0,
+                duration: const Duration(milliseconds: 150),
+                curve: Curves.easeOut,
+                child: TickerMode(
+                  enabled: i == _index,
+                  child: _tabs[i],
+                ),
+              ),
             ),
-            tooltip: 'Refresh',
+        ],
+      ),
+      bottomNavigationBar: _BottomNav(
+        index: _index,
+        onChanged: (value) => setState(() => _index = value),
+      ),
+    );
+  }
+}
+
+class _BrandTitle extends StatelessWidget {
+  const _BrandTitle();
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const _BrandMark(),
+        const SizedBox(width: 10),
+        Text(
+          'Clearate',
+          style: Theme.of(context).textTheme.headlineMd.copyWith(
+                color: Colors.white,
+                fontWeight: FontWeight.w700,
+              ),
+        ),
+      ],
+    );
+  }
+}
+
+class _BrandMark extends StatelessWidget {
+  const _BrandMark();
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: 22,
+      height: 22,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.white, width: 2),
+              borderRadius: BorderRadius.circular(4),
+            ),
+          ),
+          Positioned(
+            right: 4,
+            top: 4,
+            child: Container(
+              width: 4,
+              height: 4,
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.circle,
+              ),
+            ),
           ),
         ],
       ),
-      body: IndexedStack(
-        index: _index,
-        children: const [
-          RatesScreen(),
-          VerdictScreen(),
-          ConverterScreen(),
-          MoreScreen(),
-        ],
-      ),
-      bottomNavigationBar: Container(
+    );
+  }
+}
+
+class _BottomNav extends StatelessWidget {
+  const _BottomNav({
+    required this.index,
+    required this.onChanged,
+  });
+
+  final int index;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return SafeArea(
+      top: false,
+      child: Container(
         height: 64,
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerLowest,
           border: Border(
-            top: BorderSide(
-              color: theme.colorScheme.outlineVariant,
-              width: 1.0,
-            ),
+            top: BorderSide(color: theme.colorScheme.outlineVariant),
           ),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
-            _buildNavItem(0, Icons.trending_up, 'Rates', theme),
-            _buildNavItem(1, Icons.gavel, 'Price Check', theme),
-            _buildNavItem(2, Icons.currency_exchange, 'Converter', theme),
-            _buildNavItem(3, Icons.more_horiz, 'More', theme),
+            _NavItem(
+              icon: Icons.trending_up,
+              label: 'Rates',
+              selected: index == 0,
+              onTap: () => onChanged(0),
+            ),
+            _NavItem(
+              icon: Icons.gavel,
+              label: 'Price Check',
+              selected: index == 1,
+              onTap: () => onChanged(1),
+            ),
+            _NavItem(
+              icon: Icons.currency_exchange,
+              label: 'Converter',
+              selected: index == 2,
+              onTap: () => onChanged(2),
+            ),
+            _NavItem(
+              icon: Icons.more_horiz,
+              label: 'More',
+              selected: index == 3,
+              onTap: () => onChanged(3),
+            ),
           ],
         ),
       ),
     );
   }
+}
 
-  Widget _buildNavItem(int index, IconData icon, String label, ThemeData theme) {
-    final isSelected = _index == index;
+class _NavItem extends StatelessWidget {
+  const _NavItem({
+    required this.icon,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
 
-    return GestureDetector(
-      onTap: () => setState(() => _index = index),
-      behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
-        decoration: BoxDecoration(
-          color: isSelected ? theme.colorScheme.secondaryFixed : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              icon,
-              color: isSelected ? theme.colorScheme.onSecondaryFixed : theme.colorScheme.onSurfaceVariant,
-              size: 24,
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              style: theme.textTheme.labelMd.copyWith(
-                color: isSelected ? theme.colorScheme.onSecondaryFixed : theme.colorScheme.onSurfaceVariant,
-                fontSize: 12,
-                fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
-                letterSpacing: 0,
+  final IconData icon;
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final selectedColor = theme.colorScheme.secondaryFixed;
+    final selectedText = theme.colorScheme.onSecondaryFixed;
+    final unselectedText = theme.colorScheme.onSurfaceVariant;
+
+    return Expanded(
+      child: InkResponse(
+        onTap: onTap,
+        radius: 32,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 150),
+          curve: Curves.easeOut,
+          margin: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+          decoration: BoxDecoration(
+            color: selected ? selectedColor : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                icon,
+                size: 24,
+                color: selected ? selectedText : unselectedText,
               ),
-            ),
-          ],
+              const SizedBox(height: 2),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                style: theme.textTheme.labelMd.copyWith(
+                  color: selected ? selectedText : unselectedText,
+                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  fontSize: 11.5,
+                  height: 1.0,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../config/app_config.dart';
+import '../config/demo_rates.dart';
 import '../domain/rate_snapshot.dart';
 import '../services/rates_cache.dart';
 import '../services/rates_client.dart';
@@ -40,11 +43,18 @@ class RatesController extends ChangeNotifier {
   })  : _cache = cache,
         _client = client,
         _config = config {
+    final cached = _cache.readLatest();
+    final snapshot = cached ?? buildDemoSnapshot(fetchedAt: DateTime.now());
     _state = RatesState(
-      snapshot: _cache.readLatest(),
+      snapshot: snapshot,
       isRefreshing: false,
       warning: null,
     );
+    if (cached == null) {
+      Future(() async {
+        await _cache.writeLatest(snapshot);
+      });
+    }
   }
 
   final RatesCache _cache;
@@ -60,6 +70,10 @@ class RatesController extends ChangeNotifier {
 
   Future<void> refreshIfAllowed({bool force = false}) async {
     final current = _state.snapshot;
+    if (current == null || current.serverTime == null) {
+      await _refresh(force: force);
+      return;
+    }
     if (!force && current != null) {
       final age = DateTime.now().difference(current.fetchedAt);
       if (age < _config.refreshMinInterval) return;
@@ -68,6 +82,16 @@ class RatesController extends ChangeNotifier {
   }
 
   Future<void> forceRefresh() => _refresh(force: true);
+
+  Future<void> importSnapshot(RateSnapshot snapshot) async {
+    await _cache.writeLatest(snapshot.copyWithFetchedAt(DateTime.now()));
+    _state = RatesState(
+      snapshot: _cache.readLatest(),
+      isRefreshing: false,
+      warning: null,
+    );
+    notifyListeners();
+  }
 
   Future<void> _refresh({bool force = false}) async {
     if (_state.isRefreshing) return;
@@ -112,6 +136,12 @@ class RatesController extends ChangeNotifier {
     if (tooDifferent(previous.usdZar, incoming.usdZar)) bad.add('USD/ZAR');
     if (tooDifferent(previous.usdZwg, incoming.usdZwg)) bad.add('USD/ZWG');
     if (tooDifferent(previous.zarZwg, incoming.zarZwg)) bad.add('ZAR/ZWG');
+    if (previous.bwpUsd > 0 && incoming.bwpUsd > 0 && tooDifferent(previous.bwpUsd, incoming.bwpUsd)) {
+      bad.add('BWP/USD');
+    }
+    if (previous.bwpZar > 0 && incoming.bwpZar > 0 && tooDifferent(previous.bwpZar, incoming.bwpZar)) {
+      bad.add('BWP/ZAR');
+    }
 
     if (bad.isEmpty) return null;
     return 'Rate anomaly detected (${bad.join(', ')}). Using last known official rates.';

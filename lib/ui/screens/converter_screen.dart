@@ -14,31 +14,35 @@ class ConverterScreen extends StatefulWidget {
 
 class _ConverterScreenState extends State<ConverterScreen> {
   Currency _from = Currency.usd;
-  Currency _to = Currency.zwg;
+  Currency _to = Currency.zar;
   String _input = '0';
 
-  void _append(String v) {
+  void _append(String value) {
     setState(() {
-      if (_input == '0' && v != '.') {
-        _input = v;
-      } else {
-        if (v == '.' && _input.contains('.')) return;
-        if (_input.length >= 9) return;
-        _input += v;
+      if (_input == '0' && value != '.') {
+        _input = value;
+        return;
       }
+      if (value == '.' && _input.contains('.')) return;
+      if (_input.length >= 12) return;
+      _input += value;
     });
   }
 
   void _backspace() {
     setState(() {
-      if (_input.isEmpty || _input == '0') return;
+      if (_input == '0') return;
+      if (_input.length == 1) {
+        _input = '0';
+        return;
+      }
       _input = _input.substring(0, _input.length - 1);
-      if (_input.isEmpty) _input = '0';
+      if (_input.isEmpty || _input == '-') _input = '0';
     });
   }
 
-  void _preset(double amount) {
-    setState(() => _input = amount.toStringAsFixed(amount.truncateToDouble() == amount ? 0 : 2));
+  void _clear() {
+    setState(() => _input = '0');
   }
 
   void _swap() {
@@ -53,20 +57,14 @@ class _ConverterScreenState extends State<ConverterScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final snapshot = AppScope.of(context).ratesController.state.snapshot;
-
-    final fromAmount = double.tryParse(_input) ?? 0;
+    final amount = double.tryParse(_input) ?? 0;
     final rate = snapshot == null ? null : snapshot.rate(_from, _to);
-    final converted = rate == null ? null : fromAmount * rate;
-
-    // Symbol for quick amounts
-    final symbol = switch (_from) {
-      Currency.usd => '\$',
-      Currency.zar => 'R',
-      Currency.zwg => 'ZiG ',
-    };
+    final converted = rate == null || rate <= 0 ? null : amount * rate;
+    final sourceLabel = _from.uiLabel;
+    final targetLabel = _to.uiLabel;
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
         Text(
           'Currency Converter',
@@ -77,174 +75,78 @@ class _ConverterScreenState extends State<ConverterScreen> {
           'Instant, accurate exchange calculations.',
           style: theme.textTheme.bodyMd.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
-        const SizedBox(height: 20),
-        // Stack to overlap the Swap Button between From and To Cards
+        const SizedBox(height: 18),
         Stack(
-          alignment: Alignment.center,
+          clipBehavior: Clip.none,
+          alignment: Alignment.topCenter,
           children: [
             Column(
               children: [
-                // From Card
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerLowest,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: theme.colorScheme.outlineVariant),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'From',
-                            style: theme.textTheme.labelMd.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          _buildCurrencyDropdown(_from, (c) => setState(() => _from = c), theme),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Expanded(
-                            child: Text(
-                              _input,
-                              style: theme.textTheme.statLg.copyWith(
-                                color: theme.colorScheme.primary,
-                                fontWeight: FontWeight.w800,
-                              ),
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                          // Pulsing indicator cursor
-                          Container(
-                            width: 3,
-                            height: 28,
-                            decoration: BoxDecoration(
-                              color: theme.colorScheme.primary,
-                              borderRadius: BorderRadius.circular(2),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
+                _AmountPanel(
+                  label: 'Money You Have',
+                  currency: _from,
+                  amountText: _input,
+                  amountColor: theme.colorScheme.primary,
+                  onCurrencyChanged: (value) => setState(() => _from = value),
                 ),
-                const SizedBox(height: 16), // Gap between cards
-                // To Card
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerLow,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: theme.colorScheme.outlineVariant),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          Text(
-                            'To',
-                            style: theme.textTheme.labelMd.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                            ),
-                          ),
-                          _buildCurrencyDropdown(_to, (c) => setState(() => _to = c), theme),
-                        ],
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        converted == null ? '0.00' : formatMoney(converted),
-                        style: theme.textTheme.statLg.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w800,
-                        ),
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ],
-                  ),
+                const SizedBox(height: 12),
+                _AmountPanel(
+                  label: 'Money You Get',
+                  currency: _to,
+                  amountText: converted == null ? '---' : formatMoney(converted),
+                  amountColor: theme.colorScheme.onSurface,
+                  filled: true,
+                  onCurrencyChanged: (value) => setState(() => _to = value),
                 ),
               ],
             ),
-            // Swap Button positioned right in the middle
             Positioned(
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: theme.colorScheme.primary,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.15),
-                      blurRadius: 6,
-                      offset: const Offset(0, 3),
-                    ),
-                  ],
-                ),
-                child: Material(
-                  color: Colors.transparent,
-                  child: InkWell(
-                    onTap: _swap,
-                    customBorder: const CircleBorder(),
-                    child: Container(
-                      width: 44,
-                      height: 44,
-                      alignment: Alignment.center,
-                      child: Icon(
-                        Icons.swap_vert,
-                        color: theme.colorScheme.onPrimary,
-                        size: 24,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
+              top: 86,
+              child: _SwapButton(onTap: _swap),
             ),
           ],
         ),
-        const SizedBox(height: 20),
-        // Preset Chips
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            _buildPresetButton('$symbol\u200B5', 5, theme),
-            const SizedBox(width: 8),
-            _buildPresetButton('$symbol\u200B10', 10, theme),
-            const SizedBox(width: 8),
-            _buildPresetButton('$symbol\u200B20', 20, theme),
-            const SizedBox(width: 8),
-            _buildPresetButton('$symbol\u200B50', 50, theme),
-            const SizedBox(width: 8),
-            _buildPresetButton('$symbol\u200B100', 100, theme),
-          ],
+        const SizedBox(height: 28),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.25),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: theme.colorScheme.outlineVariant),
+          ),
+          child: GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 3,
+            mainAxisSpacing: 10,
+            crossAxisSpacing: 10,
+            childAspectRatio: 1.22,
+            children: [
+              for (final key in ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'])
+                _KeypadKey(
+                  label: key,
+                  onTap: () => _append(key),
+                ),
+              _KeypadKey(
+                label: '⌫',
+                destructive: true,
+                onTap: _backspace,
+                onLongPress: _clear,
+              ),
+            ],
+          ),
         ),
-        const SizedBox(height: 20),
-        // Keypad
-        _buildKeypad(theme),
-        const SizedBox(height: 24),
-        // Disclaimer / Footer
+        const SizedBox(height: 18),
         Center(
           child: Column(
             children: [
               Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Icon(
-                    Icons.info,
-                    size: 16,
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  Icon(Icons.info_outline, size: 16, color: theme.colorScheme.onSurfaceVariant),
                   const SizedBox(width: 6),
                   Text(
-                    "Powered by Today's Official Rates",
+                    "Based on today's official rates",
                     style: theme.textTheme.labelMd.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w700,
@@ -252,163 +154,213 @@ class _ConverterScreenState extends State<ConverterScreen> {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 6),
               Text(
                 snapshot == null
-                    ? 'Rates are updated every 60 seconds from centralized bank feeds.'
-                    : 'Last updated ${formatHonestUpdated(snapshot.fetchedAt)}. Clearate does not provide brokerage services.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontSize: 11,
-                  color: theme.colorScheme.outline,
+                    ? 'Connect to get today\'s rate.'
+                    : '1 $sourceLabel = ${formatRate(rate!)} $targetLabel',
+                style: theme.textTheme.bodyMd.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.75),
                 ),
                 textAlign: TextAlign.center,
               ),
             ],
           ),
         ),
-        const SizedBox(height: 24),
       ],
     );
   }
+}
 
-  Widget _buildCurrencyDropdown(Currency value, ValueChanged<Currency> onChanged, ThemeData theme) {
-    return DropdownButtonHideUnderline(
-      child: DropdownButton<Currency>(
-        value: value,
-        icon: Icon(
-          Icons.arrow_drop_down,
-          color: theme.colorScheme.primary,
-        ),
-        style: theme.textTheme.headlineMd.copyWith(
-          color: theme.colorScheme.primary,
-          fontWeight: FontWeight.bold,
-        ),
-        items: Currency.values
-            .map((c) => DropdownMenuItem(
-                  value: c,
-                  child: Text(c.uiLabel),
-                ))
-            .toList(),
-        onChanged: (v) {
-          if (v != null) onChanged(v);
-        },
-      ),
-    );
-  }
+class _AmountPanel extends StatelessWidget {
+  const _AmountPanel({
+    required this.label,
+    required this.currency,
+    required this.amountText,
+    required this.amountColor,
+    required this.onCurrencyChanged,
+    this.filled = false,
+  });
 
-  Widget _buildPresetButton(String label, double amount, ThemeData theme) {
-    return Expanded(
-      child: SizedBox(
-        height: 44,
-        child: OutlinedButton(
-          onPressed: () => _preset(amount),
-          style: OutlinedButton.styleFrom(
-            padding: EdgeInsets.zero,
-            side: BorderSide(color: theme.colorScheme.outline),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-          ),
-          child: Text(
-            label,
-            style: theme.textTheme.labelMd.copyWith(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
-          ),
-        ),
-      ),
-    );
-  }
+  final String label;
+  final Currency currency;
+  final String amountText;
+  final Color amountColor;
+  final ValueChanged<Currency> onCurrencyChanged;
+  final bool filled;
 
-  Widget _buildKeypad(ThemeData theme) {
-    Widget key(String label, {VoidCallback? onTap}) {
-      return Expanded(
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: SizedBox(
-            height: 56,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                elevation: 1,
-                backgroundColor: theme.colorScheme.surfaceContainerLowest,
-                foregroundColor: theme.colorScheme.primary,
-                shadowColor: Colors.black12,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: onTap,
-              child: Text(
-                label,
-                style: theme.textTheme.headlineMd.copyWith(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20,
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    Widget backspaceKey(VoidCallback onTap) {
-      return Expanded(
-        child: Padding(
-          padding: const EdgeInsets.all(4),
-          child: SizedBox(
-            height: 56,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                elevation: 1,
-                backgroundColor: theme.colorScheme.errorContainer,
-                foregroundColor: theme.colorScheme.onErrorContainer,
-                shadowColor: Colors.black12,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-              onPressed: onTap,
-              child: const Icon(Icons.backspace_outlined, size: 20),
-            ),
-          ),
-        ),
-      );
-    }
-
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(8),
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
+        color: filled ? theme.colorScheme.surfaceContainerLow : theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(18),
         border: Border.all(color: theme.colorScheme.outlineVariant),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x10000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              key('1', onTap: () => _append('1')),
-              key('2', onTap: () => _append('2')),
-              key('3', onTap: () => _append('3')),
+              Text(
+                label,
+                style: theme.textTheme.labelMd.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              _CurrencyMenu(currency: currency, onChanged: onCurrencyChanged),
             ],
           ),
+          const SizedBox(height: 10),
           Row(
             children: [
-              key('4', onTap: () => _append('4')),
-              key('5', onTap: () => _append('5')),
-              key('6', onTap: () => _append('6')),
-            ],
-          ),
-          Row(
-            children: [
-              key('7', onTap: () => _append('7')),
-              key('8', onTap: () => _append('8')),
-              key('9', onTap: () => _append('9')),
-            ],
-          ),
-          Row(
-            children: [
-              key('.', onTap: () => _append('.')),
-              key('0', onTap: () => _append('0')),
-              backspaceKey(_backspace),
+              Expanded(
+                child: Text(
+                  amountText,
+                  style: theme.textTheme.displayLg.copyWith(
+                    color: amountColor,
+                    fontSize: label == 'Money You Have' ? 38 : 36,
+                    height: 1.0,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              Container(
+                width: 4,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.onSurface.withOpacity(0.85),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+              ),
             ],
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _CurrencyMenu extends StatelessWidget {
+  const _CurrencyMenu({
+    required this.currency,
+    required this.onChanged,
+  });
+
+  final Currency currency;
+  final ValueChanged<Currency> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return PopupMenuButton<Currency>(
+      onSelected: onChanged,
+      itemBuilder: (context) => Currency.values
+          .map(
+            (value) => PopupMenuItem<Currency>(
+              value: value,
+              child: Text(value.uiLabel),
+            ),
+          )
+          .toList(),
+      child: Row(
+        children: [
+          Text(
+            currency.uiLabel,
+            style: theme.textTheme.headlineMd.copyWith(
+              fontWeight: FontWeight.w700,
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          const SizedBox(width: 2),
+          Icon(Icons.keyboard_arrow_down, color: theme.colorScheme.onSurfaceVariant, size: 22),
+        ],
+      ),
+    );
+  }
+}
+
+class _SwapButton extends StatelessWidget {
+  const _SwapButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.black,
+      shape: const CircleBorder(),
+      elevation: 4,
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: const SizedBox(
+          width: 48,
+          height: 48,
+          child: Icon(Icons.swap_vert, color: Colors.white),
+        ),
+      ),
+    );
+  }
+}
+
+class _KeypadKey extends StatelessWidget {
+  const _KeypadKey({
+    required this.label,
+    required this.onTap,
+    this.onLongPress,
+    this.destructive = false,
+  });
+
+  final String label;
+  final VoidCallback onTap;
+  final VoidCallback? onLongPress;
+  final bool destructive;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return GestureDetector(
+      onTap: onTap,
+      onLongPress: onLongPress,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 120),
+        decoration: BoxDecoration(
+          color: destructive ? const Color(0xFFFFDAD6) : theme.colorScheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+          boxShadow: const [
+            BoxShadow(
+              color: Color(0x11000000),
+              blurRadius: 6,
+              offset: Offset(0, 2),
+            ),
+          ],
+        ),
+        alignment: Alignment.center,
+        child: label == '⌫'
+            ? Icon(Icons.backspace_outlined, color: theme.colorScheme.error)
+            : Text(
+                label,
+                style: theme.textTheme.headlineMd.copyWith(
+                  color: destructive ? theme.colorScheme.error : theme.colorScheme.onSurface,
+                  fontSize: 30,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
       ),
     );
   }

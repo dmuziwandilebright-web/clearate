@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -26,16 +25,18 @@ class _MoreScreenState extends State<MoreScreen> {
 
   Future<void> _load() async {
     final pkg = await PackageInfo.fromPlatform();
+    if (!mounted) return;
     setState(() => _pkg = pkg);
 
     try {
       final checker = UpdateChecker();
       final update = await checker.fetch(AppScope.of(context).config);
+      if (!mounted) return;
       if (_isNewer(update.latestVersion, pkg.version)) {
         setState(() => _update = update);
       }
     } catch (_) {
-      // Silent; More should still work offline.
+      // Silent by design.
     }
   }
 
@@ -54,73 +55,91 @@ class _MoreScreenState extends State<MoreScreen> {
   Future<void> _open(Uri uri) async {
     if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open link.')));
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open link.')),
+      );
     }
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final versionLabel = _pkg == null
+        ? 'Checking version...'
+        : 'Version ${_pkg!.version} (Build ${_pkg!.buildNumber})';
 
     return ListView(
-      padding: const EdgeInsets.symmetric(horizontal: 16),
+      padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
       children: [
-        const SizedBox(height: 24),
-        // Brand section
-        Center(
+        Container(
+          padding: const EdgeInsets.all(18),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [Color(0xFF10162A), Color(0xFF1A237E)],
+            ),
+            borderRadius: BorderRadius.circular(24),
+            boxShadow: const [
+              BoxShadow(
+                color: Color(0x22000000),
+                blurRadius: 16,
+                offset: Offset(0, 8),
+              ),
+            ],
+          ),
           child: Column(
             children: [
-              Container(
-                width: 96,
-                height: 96,
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: theme.colorScheme.outlineVariant),
-                  boxShadow: const [
-                    BoxShadow(
-                      color: Colors.black12,
-                      blurRadius: 4,
-                      offset: Offset(0, 2),
-                    ),
-                  ],
-                ),
-                padding: const EdgeInsets.all(8),
-                alignment: Alignment.center,
-                child: Image.network(
-                  'https://lh3.googleusercontent.com/aida/AP1WRLuB9RxFNwFOizGtqZG3NxHNTLXFO-fugj0xuplfsTVbkKDVF2YtDbpCQm-r-VOXqaEm869YWO_uJSHn0Z7sqLpDLQ6YhtGXjl3R81aIRhe22aeQ6ucGTfjaPSglwx5PBhXeyYAHD_Yvfco52J3Ax36UYueL2FlrZlS7PSgBzHhrGW6WVqt2woAnNd1jVVYZAKOI-gjUix8eguaFNSnXe0dZENZoNJRuMxEcdAfLVyrhqU0Z6uGb_o2nA41D',
-                  width: 80,
-                  height: 80,
-                  fit: BoxFit.contain,
-                  errorBuilder: (context, error, stackTrace) {
-                    return Icon(
-                      Icons.account_balance_wallet,
-                      size: 48,
-                      color: theme.colorScheme.primaryContainerNavy,
-                    );
-                  },
-                ),
-              ),
-              const SizedBox(height: 16),
+              const _LogoBadge(),
+              const SizedBox(height: 14),
               Text(
                 'Financial Truth',
                 style: theme.textTheme.headlineLgMobile.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: theme.colorScheme.onSurface,
+                  color: Colors.white,
                 ),
+                textAlign: TextAlign.center,
               ),
               const SizedBox(height: 6),
               Text(
-                'Providing clarity in a volatile world through objective currency data and transparent rates.',
+                'Showing reference rates first, then live rates as soon as the device connects.',
                 style: theme.textTheme.bodyMd.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+                  color: Colors.white.withOpacity(0.85),
                 ),
                 textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 14),
+              Row(
+                children: [
+                  Expanded(
+                    child: _FeatureTile(
+                      icon: Icons.offline_bolt_outlined,
+                      title: 'Offline ready',
+                      body: 'Keeps the last saved rates on the device.',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _FeatureTile(
+                      icon: Icons.qr_code_2_outlined,
+                      title: 'QR sharing',
+                      body: 'Share live rates with nearby phones.',
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: _FeatureTile(
+                      icon: Icons.gavel_outlined,
+                      title: 'Price checks',
+                      body: 'See if a quote is fair before paying.',
+                    ),
+                  ),
+                ],
               ),
             ],
           ),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 18),
         if (_update != null) ...[
           _UpdateBanner(
             version: _update!.latestVersion,
@@ -129,80 +148,54 @@ class _MoreScreenState extends State<MoreScreen> {
           ),
           const SizedBox(height: 16),
         ],
-        // Menu groups
-        // Preferences & Help Card
-        Container(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: theme.colorScheme.outlineVariant),
-          ),
-          child: Column(
-            children: [
-              _buildMenuTile(
-                icon: Icons.help_center,
-                title: 'Support',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const _SupportScreen()),
-                ),
-                theme: theme,
+        _MenuGroup(
+          items: [
+            _MenuItemData(
+              icon: Icons.help_center_outlined,
+              title: 'Support',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const _SupportScreen()),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
         const SizedBox(height: 16),
-        // Application Info Card
-        Container(
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: theme.colorScheme.outlineVariant),
-          ),
-          child: Column(
-            children: [
-              _buildMenuTile(
-                icon: Icons.info,
-                title: 'About',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const _AboutScreen()),
-                ),
-                theme: theme,
+        _MenuGroup(
+          items: [
+            _MenuItemData(
+              icon: Icons.info_outline,
+              title: 'About',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const _AboutScreen()),
               ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              _buildMenuTile(
-                icon: Icons.help_outline,
-                title: 'FAQ',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const _FaqScreen()),
-                ),
-                theme: theme,
+            ),
+            _MenuItemData(
+              icon: Icons.help_outline,
+              title: 'FAQ',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const _FaqScreen()),
               ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              _buildMenuTile(
-                icon: Icons.gavel,
-                title: 'Legal',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const _LegalScreen()),
-                ),
-                theme: theme,
+            ),
+            _MenuItemData(
+              icon: Icons.gavel_outlined,
+              title: 'Legal',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const _LegalScreen()),
               ),
-              const Divider(height: 1, indent: 16, endIndent: 16),
-              _buildMenuTile(
-                icon: Icons.storage,
-                title: 'Rate Source',
-                onTap: () => Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const _RateSourceScreen()),
-                ),
-                theme: theme,
+            ),
+            _MenuItemData(
+              icon: Icons.storage_outlined,
+              title: 'Rate Source',
+              onTap: () => Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const _RateSourceScreen()),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
         const SizedBox(height: 24),
-        // Version & Copy Metadata
         Center(
           child: Text(
-            _pkg == null ? 'Version 1.0 (Build —)' : 'Version ${_pkg!.version} (Build ${_pkg!.buildNumber})',
+            versionLabel,
             style: theme.textTheme.labelMd.copyWith(
               color: theme.colorScheme.onSurfaceVariant.withOpacity(0.6),
             ),
@@ -221,42 +214,276 @@ class _MoreScreenState extends State<MoreScreen> {
       ],
     );
   }
+}
 
-  Widget _buildMenuTile({
-    required IconData icon,
-    required String title,
-    required VoidCallback onTap,
-    required ThemeData theme,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        height: 48,
-        padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            Icon(
-              icon,
-              color: theme.colorScheme.secondary,
-              size: 24,
+class _LogoBadge extends StatelessWidget {
+  const _LogoBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    return const _ClearateLogoMark();
+  }
+}
+
+class _ClearateLogoMark extends StatelessWidget {
+  const _ClearateLogoMark({
+    this.size = 96,
+    this.padding = 16,
+  });
+
+  final double size;
+  final double padding;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      padding: EdgeInsets.all(padding),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(size * 0.14),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: const DecoratedBox(
+        decoration: BoxDecoration(
+          color: Color(0xFF0F172A),
+          borderRadius: BorderRadius.all(Radius.circular(18)),
+        ),
+        child: CustomPaint(painter: _ClearateLogoPainter()),
+      ),
+    );
+  }
+}
+
+class _ClearateLogoPainter extends CustomPainter {
+  const _ClearateLogoPainter();
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final circlePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.shortestSide * 0.12
+      ..strokeCap = StrokeCap.round;
+    final linePaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.shortestSide * 0.12
+      ..strokeCap = StrokeCap.round;
+    final checkPaint = Paint()
+      ..color = Colors.white
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = size.shortestSide * 0.1
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round;
+
+    canvas.drawCircle(
+      Offset(size.width * 0.45, size.height * 0.42),
+      size.shortestSide * 0.23,
+      circlePaint,
+    );
+    canvas.drawLine(
+      Offset(size.width * 0.59, size.height * 0.57),
+      Offset(size.width * 0.79, size.height * 0.77),
+      linePaint,
+    );
+    final check = Path()
+      ..moveTo(size.width * 0.31, size.height * 0.34)
+      ..lineTo(size.width * 0.40, size.height * 0.53)
+      ..lineTo(size.width * 0.49, size.height * 0.44);
+    canvas.drawPath(check, checkPaint);
+  }
+
+  @override
+  bool shouldRepaint(covariant _ClearateLogoPainter oldDelegate) => false;
+}
+
+class _FeatureTile extends StatelessWidget {
+  const _FeatureTile({
+    required this.icon,
+    required this.title,
+    required this.body,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.white.withOpacity(0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: Colors.white, size: 20),
+          const SizedBox(height: 10),
+          Text(
+            title,
+            style: Theme.of(context).textTheme.labelMd.copyWith(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w700,
+                ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            body,
+            style: Theme.of(context).textTheme.labelMd.copyWith(
+                  color: Colors.white.withOpacity(0.78),
+                  fontSize: 11,
+                ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _IdentityCard extends StatelessWidget {
+  const _IdentityCard({
+    required this.icon,
+    required this.iconBackground,
+    required this.iconColor,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final Color iconBackground;
+  final Color iconColor;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: iconBackground,
+              borderRadius: BorderRadius.circular(10),
             ),
-            const SizedBox(width: 16),
-            Text(
-              title,
-              style: theme.textTheme.bodyLg.copyWith(
-                color: theme.colorScheme.onSurface,
-                fontWeight: FontWeight.w500,
-                fontSize: 16,
-              ),
+            child: Icon(icon, color: iconColor, size: 22),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label.toUpperCase(),
+                  style: theme.textTheme.labelMd.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    letterSpacing: 1.0,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  style: theme.textTheme.bodyLg.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
             ),
-            const Spacer(),
-            Icon(
-              Icons.chevron_right,
-              color: theme.colorScheme.outlineVariant,
-              size: 20,
-            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuItemData {
+  _MenuItemData({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+}
+
+class _MenuGroup extends StatelessWidget {
+  const _MenuGroup({required this.items});
+
+  final List<_MenuItemData> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Column(
+        children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) Divider(height: 1, indent: 16, endIndent: 16, color: theme.colorScheme.outlineVariant),
+            _MenuTile(item: items[i]),
           ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MenuTile extends StatelessWidget {
+  const _MenuTile({required this.item});
+
+  final _MenuItemData item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: item.onTap,
+      child: SizedBox(
+        height: 56,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16),
+          child: Row(
+            children: [
+              Icon(item.icon, color: theme.colorScheme.secondary, size: 22),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Text(
+                  item.title,
+                  style: theme.textTheme.bodyLg.copyWith(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 16,
+                  ),
+                ),
+              ),
+              Icon(Icons.chevron_right, color: theme.colorScheme.outlineVariant),
+            ],
+          ),
         ),
       ),
     );
@@ -264,7 +491,11 @@ class _MoreScreenState extends State<MoreScreen> {
 }
 
 class _UpdateBanner extends StatelessWidget {
-  const _UpdateBanner({required this.version, required this.notes, required this.onTap});
+  const _UpdateBanner({
+    required this.version,
+    required this.notes,
+    required this.onTap,
+  });
 
   final String version;
   final String notes;
@@ -273,97 +504,36 @@ class _UpdateBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: theme.colorScheme.secondaryContainer,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: theme.colorScheme.outlineVariant),
-        ),
-        child: Row(
-          children: [
-            Icon(Icons.system_update, color: theme.colorScheme.onSecondaryContainer),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'New version available: v$version',
-                    style: theme.textTheme.labelMd.copyWith(
-                      color: theme.colorScheme.onSecondaryContainer,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                  if (notes.isNotEmpty)
-                    Text(
-                      notes,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSecondaryContainer,
-                      ),
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right),
-          ],
-        ),
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.secondaryContainer,
+        borderRadius: BorderRadius.circular(16),
       ),
-    );
-  }
-}
-
-class _SupportScreen extends StatelessWidget {
-  const _SupportScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    Future<void> email() async {
-      final uri = Uri(
-        scheme: 'mailto',
-        path: 'support@clearate.app',
-        queryParameters: {'subject': 'Clearate Support'},
-      );
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('Support')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      child: InkWell(
+        onTap: onTap,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Need help?',
-              style: theme.textTheme.headlineLgMobile.copyWith(fontWeight: FontWeight.bold),
+              'New version available: $version',
+              style: theme.textTheme.labelMd.copyWith(
+                color: theme.colorScheme.onSecondaryContainer,
+              ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 6),
             Text(
-              'Get in touch with our team for questions, feedback, or custom integrations.',
-              style: theme.textTheme.bodyLg.copyWith(color: theme.colorScheme.onSurfaceVariant),
+              notes,
+              style: theme.textTheme.bodyMd.copyWith(
+                color: theme.colorScheme.onSecondaryContainer,
+              ),
             ),
-            const SizedBox(height: 24),
-            SizedBox(
-              height: 48,
-              width: double.infinity,
-              child: FilledButton.icon(
-                style: FilledButton.styleFrom(
-                  backgroundColor: theme.colorScheme.primary,
-                  foregroundColor: theme.colorScheme.onPrimary,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                ),
-                onPressed: email,
-                icon: const Icon(Icons.email_outlined),
-                label: const Text('Email Support'),
+            const SizedBox(height: 10),
+            Text(
+              'Tap to download',
+              style: theme.textTheme.labelMd.copyWith(
+                color: theme.colorScheme.onSecondaryContainer,
+                fontWeight: FontWeight.w700,
               ),
             ),
           ],
@@ -379,42 +549,429 @@ class _AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: AppBar(title: const Text('About')),
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        titleSpacing: 0,
+        title: Text('About', style: theme.textTheme.headlineMd.copyWith(color: Colors.white)),
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 24, 16, 24),
         children: [
-          Text(
-            'Clearate',
-            style: theme.textTheme.headlineLgMobile.copyWith(fontWeight: FontWeight.bold),
+          Center(
+            child: Column(
+              children: [
+                const _ClearateLogoMark(size: 104, padding: 18),
+                const SizedBox(height: 18),
+                Text(
+                  'Clearate',
+                  style: theme.textTheme.displayLg.copyWith(
+                    fontSize: 42,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  'Financial Truth for Every Zimbabwean',
+                  style: theme.textTheme.bodyLg.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 12),
-          Text(
-            'Clearate provides official exchange-rate information to help you verify fairness at the point of sale.\n\n'
-            'It is designed for low data usage and works offline after saving the latest official rates.\n\n'
-            'By empowering everyday users with direct, clean access to central banking reference rates, we eliminate guess-work, reduce inflation risk, and bring financial truth to local markets.',
-            style: theme.textTheme.bodyLg.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 22),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(12),
+              color: theme.colorScheme.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(color: theme.colorScheme.outlineVariant),
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x10000000),
+                  blurRadius: 10,
+                  offset: Offset(0, 2),
+                ),
+              ],
+            ),
+            child: Text(
+              'Clearate was built in Plumtree, Zimbabwe by an 18-year-old developer who got tired of standing in a shop not knowing whether the exchange rate being quoted was honest. Not just for buyers - for anyone who touches more than one currency. The vendor pricing their tomatoes. The person changing rands at the bureau. The tuckshop owner working out what to charge. The family receiving money from abroad. If a rate is involved and you want to know if it is fair, Clearate tells you in three seconds.\n\nEvery feature exists because a real Zimbabwean needed it. The rates come directly from the Reserve Bank of Zimbabwe. The Price Check works offline. The QR sharing works without internet. Nothing in this app is decoration - it is all here because it solves something real.',
+              style: theme.textTheme.bodyLg.copyWith(
+                height: 1.55,
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(14),
             ),
             child: Row(
               children: [
-                Icon(Icons.shield_outlined, color: theme.colorScheme.primary, size: 32),
-                const SizedBox(width: 16),
+                Icon(Icons.info_outline, color: theme.colorScheme.onSecondaryContainer),
+                const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    '100% independent data utility. Clearate is not affiliated with any commercial brokerage or currency reseller.',
-                    style: theme.textTheme.labelMd.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                    'This is version 1.0. It will keep getting better.',
+                    style: theme.textTheme.labelMd.copyWith(
+                      color: theme.colorScheme.onSecondaryContainer,
+                      fontWeight: FontWeight.w600,
+                    ),
                   ),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          Row(
+            children: [
+              Expanded(
+                child: _IdentityCard(
+                  icon: Icons.person_pin,
+                  iconBackground: Colors.black,
+                  iconColor: Colors.white,
+                  label: 'Founder',
+                  value: 'Muziwandile B. Dube',
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _IdentityCard(
+                  icon: Icons.location_on,
+                  iconBackground: const Color(0xFFD3E4FE),
+                  iconColor: const Color(0xFF0B1C30),
+                  label: 'Origin',
+                  value: 'Plumtree, Zim',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 18),
+          SizedBox(
+            height: 48,
+            child: FilledButton.icon(
+              onPressed: () async {
+                await launchUrl(
+                  Uri.parse('https://wa.me/263771479216'),
+                  mode: LaunchMode.externalApplication,
+                );
+              },
+              style: FilledButton.styleFrom(backgroundColor: Colors.black, foregroundColor: Colors.white),
+              icon: const Icon(Icons.share),
+              label: const Text('Share Financial Clarity'),
+            ),
+          ),
+          const SizedBox(height: 30),
+          Center(
+            child: Text(
+              'Founded by Muziwandile Bright Dube. Plumtree, Zimbabwe · 2026. A Britek product.',
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelMd.copyWith(
+                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.65),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SupportScreen extends StatelessWidget {
+  const _SupportScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        titleSpacing: 0,
+        title: Text('Support', style: theme.textTheme.headlineMd.copyWith(color: Colors.white)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+        children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
+            decoration: BoxDecoration(
+              color: const Color(0xFFF7F9FB),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
+            ),
+            child: Column(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: const Color(0xFFD3E4FE),
+                  child: Icon(Icons.contact_support, color: const Color(0xFF0B1C30), size: 28),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Support',
+                  style: theme.textTheme.headlineLgMobile.copyWith(fontWeight: FontWeight.w800),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Having a problem or want to give feedback? We want to hear from you.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyMd.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 22),
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Frequently Asked',
+                  style: theme.textTheme.headlineMd.copyWith(fontWeight: FontWeight.w700),
+                ),
+              ),
+              TextButton(
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _FaqScreen())),
+                child: const Text('View All'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _SupportPill(
+            icon: Icons.help_outline,
+            title: 'How are rates calculated?',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _FaqScreen())),
+          ),
+          const SizedBox(height: 10),
+          _SupportPill(
+            icon: Icons.update,
+            title: 'How often is data updated?',
+            onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const _RateSourceScreen())),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10162A),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.chat_bubble_outline, color: Colors.white),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Contact Us',
+                      style: theme.textTheme.headlineMd.copyWith(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Message us on WhatsApp with your question. We typically respond within an hour during business hours.',
+                  style: theme.textTheme.bodyMd.copyWith(color: Colors.white.withOpacity(0.72)),
+                ),
+                const SizedBox(height: 18),
+                _WhatsAppRow(
+                  number: '+263 771 479 216',
+                  uri: Uri.parse('https://wa.me/263771479216'),
+                ),
+                const SizedBox(height: 10),
+                _WhatsAppRow(
+                  number: '+263 780 464 255',
+                  uri: Uri.parse('https://wa.me/263780464255'),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(18),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.bug_report, color: theme.colorScheme.error),
+                    const SizedBox(width: 10),
+                    Text(
+                      'Found a bug?',
+                      style: theme.textTheme.headlineMd.copyWith(
+                        color: theme.colorScheme.error,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Tell us exactly what you did before the issue occurred. Screenshots are very helpful!',
+                  style: theme.textTheme.bodyMd.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.tonal(
+                    onPressed: () async {
+                      await launchUrl(
+                        Uri.parse('https://wa.me/263771479216?text=${Uri.encodeComponent('Clearate bug report')}'),
+                        mode: LaunchMode.externalApplication,
+                      );
+                    },
+                    child: const Text('Report an Issue'),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFD3E4FE),
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.info_outline, color: const Color(0xFF0B1C30)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    'Our support hours are Monday to Friday, 8:00 AM to 5:00 PM (CAT).',
+                    style: theme.textTheme.bodyMd.copyWith(color: const Color(0xFF0B1C30)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FaqScreen extends StatelessWidget {
+  const _FaqScreen();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        titleSpacing: 0,
+        title: Text('FAQ', style: theme.textTheme.headlineMd.copyWith(color: Colors.white)),
+      ),
+      body: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
+        children: [
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: const Color(0xFF10162A),
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.white, width: 3),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Center(
+                    child: Text(
+                      '?',
+                      style: TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w700),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Text(
+                  'Financial Truth, Simplified.',
+                  style: theme.textTheme.bodyLg.copyWith(color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            'Clearate is designed to give you clarity on Zimbabwe\'s exchange rates. Use this guide to master the tools available.',
+            style: theme.textTheme.bodyLg.copyWith(color: theme.colorScheme.onSurfaceVariant),
+          ),
+          const SizedBox(height: 18),
+          _FaqAccordion(
+            title: 'How do I use Price Check?',
+            body:
+                'Price Check helps you verify if a retailer\'s price matches official rates:\n\n'
+                '1. Enter the USD Price of the item.\n'
+                '2. Enter the Rand or ZiG Price being charged by the shop.\n'
+                '3. Clearate will automatically compare the two using current RBZ data.',
+            positiveLabel: 'FAIR',
+            positiveText: 'The price is within the legal limit.',
+            dangerLabel: 'OVERCHARGED',
+            dangerText: 'The rate exceeds official guidelines.',
+            infoLabel: 'UNDERVALUED',
+            infoText: 'The price is lower than expected.',
+          ),
+          const SizedBox(height: 10),
+          _FaqItem(title: 'How do I share rates without internet?'),
+          const SizedBox(height: 10),
+          _FaqItem(title: 'Where do the rates come from?'),
+          const SizedBox(height: 10),
+          _FaqItem(title: 'The app is showing an old rate - is something wrong?'),
+          const SizedBox(height: 10),
+          _FaqItem(title: 'My phone says the APK is unsafe - should I install it?'),
+          const SizedBox(height: 10),
+          _FaqItem(title: 'Does Clearate work on any network?'),
+          const SizedBox(height: 10),
+          _FaqItem(title: 'Does Clearate cost anything?'),
+          const SizedBox(height: 18),
+          Container(
+            height: 160,
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(18),
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFF1F3F5), Color(0xFFE6E8EA)],
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Center(
+            child: Text(
+              'ZIMBABWE FINANCIAL TRUTH V1.0',
+              style: theme.textTheme.labelMd.copyWith(
+                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.7),
+                letterSpacing: 1.4,
+              ),
             ),
           ),
         ],
@@ -429,165 +986,110 @@ class _LegalScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Legal')),
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        titleSpacing: 0,
+        title: Text('Legal', style: theme.textTheme.headlineMd.copyWith(color: Colors.white)),
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
         children: [
           Text(
-            'Disclaimer',
-            style: theme.textTheme.headlineLgMobile.copyWith(fontWeight: FontWeight.bold),
-          ),
-          const SizedBox(height: 12),
-          Text(
-            'Clearate is an information tool and is not a licensed financial advisor. '
-            'Exchange rates shown are provided for reference and may not reflect rates offered by all retail institutions.\n\n'
-            'By using this app, you agree that you are responsible for your own financial decisions.',
-            style: theme.textTheme.bodyLg.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 24),
-          Text(
-            'Terms of Service',
-            style: theme.textTheme.headlineMd.copyWith(fontWeight: FontWeight.bold),
+            'Transparency & Trust',
+            style: theme.textTheme.displayLg.copyWith(fontSize: 40, fontWeight: FontWeight.w800),
           ),
           const SizedBox(height: 8),
           Text(
-            'Our data is pulled directly from public feeds. We make no guarantees about uptime, speed, or accuracy of currency exchanges conducted by secondary merchants.',
-            style: theme.textTheme.bodyMd.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            'Understanding how Clearate protects you and the data that empowers your financial decisions.',
+            style: theme.textTheme.bodyLg.copyWith(color: theme.colorScheme.onSurfaceVariant),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _FaqScreen extends StatelessWidget {
-  const _FaqScreen();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Scaffold(
-      appBar: AppBar(title: const Text('FAQ')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          // Intro Hero Container
+          const SizedBox(height: 18),
+          _LegalCard(
+            icon: Icons.gavel,
+            title: 'Terms of Use',
+            body:
+                'Clearate is an information tool designed to provide visibility into market currency rates. It is strictly informational and not a licensed financial advisor.\n\n'
+                'Users are responsible for verifying all rate information independently before engaging in any financial transactions. Britek and its founder bear no liability for financial decisions, losses, or damages resulting from the use of this application.',
+            calloutTitle: 'Important',
+            calloutBody: 'By using this tool, you acknowledge that rates are subject to rapid market volatility.',
+          ),
+          const SizedBox(height: 16),
+          _LegalCard(
+            icon: Icons.lock,
+            title: 'Privacy Policy',
+            body:
+                'Clearate respects your privacy and operates on a principle of minimal data collection. We collect anonymous usage data through Firebase to improve app performance and stability.\n\n'
+                'No personally identifiable information is ever collected or stored. Currency rate data is cached locally on your device for offline access. We never sell or share data with third-party advertisers or data brokers.',
+          ),
+          const SizedBox(height: 16),
+          _LegalCard(
+            icon: Icons.info,
+            title: 'Disclaimer',
+            body:
+                'Fair price thresholds displayed in the app are calculated based on prevailing retail market conditions and are updated at regular intervals. These figures represent observed trends, not mandated prices.',
+            calloutTitle: 'Use Your Judgement',
+            calloutBody: 'Please use your own judgement and consult with professional financial institutions for high-value transactions.',
+            calloutColor: const Color(0xFFFFE8E8),
+            calloutTextColor: const Color(0xFF9F1E1E),
+          ),
+          const SizedBox(height: 18),
           Container(
-            padding: const EdgeInsets.all(24),
+            height: 160,
             decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(18),
+              gradient: const LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [Color(0xFFEDEEF0), Color(0xFFD8DADC)],
+              ),
             ),
-            child: Column(
+            child: Stack(
+              alignment: Alignment.center,
               children: [
-                Icon(
-                  Icons.help_center,
-                  size: 56,
-                  color: theme.colorScheme.onPrimaryContainer,
-                ),
-                const SizedBox(height: 12),
+                Icon(Icons.gavel_outlined, size: 72, color: Colors.black.withOpacity(0.1)),
                 Text(
-                  'Financial Truth, Simplified.',
-                  style: theme.textTheme.headlineMd.copyWith(
-                    color: theme.colorScheme.onPrimaryContainer,
-                    fontWeight: FontWeight.bold,
+                  'LEGAL',
+                  style: theme.textTheme.labelMd.copyWith(
+                    color: Colors.black.withOpacity(0.3),
+                    letterSpacing: 1.5,
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          Text(
-            "Clearate is designed to give you clarity on Zimbabwe's exchange rates. Use this guide to master the tools available.",
-            style: theme.textTheme.bodyLg.copyWith(color: theme.colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 24),
-          // Questions Accordion List
-          _FaqItem(
-            question: 'How do I use Price Check?',
-            answer: 'Price Check helps you verify if a retailer\'s price matches official rates:\n\n'
-                '1. Enter the USD Price of the item.\n'
-                '2. Enter the ZAR or ZiG Price being charged by the shop.\n'
-                '3. Clearate will automatically compare the two using current RBZ data.\n\n'
-                '• FAIR: Within standard legal transaction margins.\n'
-                '• OVERCHARGED: Rate exceeds official parameters.\n'
-                '• UNDERVALUED: Rate is significantly below averages.',
-          ),
-          const SizedBox(height: 12),
-          _FaqItem(
-            question: 'How do I share rates without internet?',
-            answer: 'Clearate features secure QR Sync code sharing:\n\n'
-                '• Show QR: Generate a local scan-code on a device with updated rates.\n'
-                '• Scan: Scan the QR code using another phone\'s camera to update its local database instantly. Works 100% offline.',
-          ),
-          const SizedBox(height: 12),
-          _FaqItem(
-            question: 'Where do the rates come from?',
-            answer: 'All official exchange rates are retrieved directly from the Reserve Bank of Zimbabwe (RBZ) databases via the authorized ZimRate API, assuring absolute source integrity.',
-          ),
-          const SizedBox(height: 12),
-          _FaqItem(
-            question: 'The app is showing an old rate — is something wrong?',
-            answer: 'No. Clearate caches (saves) the latest retrieved data to function offline. Pull down to refresh the home screen when you are back online to get the newest reference feeds.',
-          ),
-          const SizedBox(height: 12),
-          _FaqItem(
-            question: 'My phone says the APK is unsafe — should I install?',
-            answer: 'This is a standard Android warning for apps downloaded outside the Google Play Store. Clearate is secure and open-source. As long as you download from our official web channels, it is completely safe.',
-          ),
-          const SizedBox(height: 12),
-          _FaqItem(
-            question: 'Does Clearate cost anything?',
-            answer: 'Clearate is 100% free. Our primary goal is public utility and financial transparency for all citizens.',
-          ),
-          const SizedBox(height: 32),
-        ],
-      ),
-    );
-  }
-}
-
-class _FaqItem extends StatelessWidget {
-  const _FaqItem({required this.question, required this.answer});
-
-  final String question;
-  final String answer;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: ExpansionTile(
-        title: Text(
-          question,
-          style: theme.textTheme.headlineMd.copyWith(
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-            color: theme.colorScheme.primary,
-          ),
-        ),
-        iconColor: theme.colorScheme.primary,
-        collapsedIconColor: theme.colorScheme.outline,
-        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
-        shape: const Border(), // Remove default borders on expansion
-        collapsedShape: const Border(),
-        children: [
-          const Divider(),
-          const SizedBox(height: 8),
-          Text(
-            answer,
-            style: theme.textTheme.bodyMd.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-              height: 1.4,
+          const SizedBox(height: 18),
+          Center(
+            child: Column(
+              children: [
+                const _ClearateLogoMark(size: 52, padding: 10),
+                const SizedBox(height: 10),
+                Text(
+                  'Clearate',
+                  style: theme.textTheme.bodyLg.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '© 2026 Britek. Built in Zimbabwe.\nAll rights reserved.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.labelMd.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: 10,
+                  runSpacing: 8,
+                  children: [
+                    TextButton(onPressed: () {}, child: const Text('Contact Support')),
+                    TextButton(onPressed: () {}, child: const Text('Institutional Access')),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
@@ -602,187 +1104,115 @@ class _RateSourceScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: AppBar(title: const Text('Rate Source')),
+      backgroundColor: theme.colorScheme.surface,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        foregroundColor: Colors.white,
+        elevation: 0,
+        titleSpacing: 0,
+        title: Text('Rate Source', style: theme.textTheme.headlineMd.copyWith(color: Colors.white)),
+        actions: const [
+          Padding(
+            padding: EdgeInsets.only(right: 12),
+            child: Icon(Icons.sync),
+          ),
+        ],
+      ),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.fromLTRB(16, 18, 16, 24),
         children: [
-          // Hero info card
           Container(
-            padding: const EdgeInsets.all(20),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
               color: theme.colorScheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(18),
               border: Border.all(color: theme.colorScheme.outlineVariant),
             ),
             child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.all(12),
+                      width: 48,
+                      height: 48,
                       decoration: BoxDecoration(
-                        color: theme.colorScheme.secondaryContainer,
-                        borderRadius: BorderRadius.circular(8),
+                        color: const Color(0xFFD3E4FE),
+                        borderRadius: BorderRadius.circular(12),
                       ),
-                      child: Icon(
-                        Icons.verified_user,
-                        color: theme.colorScheme.onSecondaryContainer,
-                      ),
+                      child: Icon(Icons.verified_user, color: const Color(0xFF3F465C)),
                     ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'Data Authenticity',
-                            style: theme.textTheme.headlineMd.copyWith(fontWeight: FontWeight.bold),
+                    const SizedBox(width: 12),
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Data Authenticity',
+                          style: theme.textTheme.headlineMd.copyWith(fontWeight: FontWeight.w700),
+                        ),
+                        Text(
+                          'OFFICIAL FEED',
+                          style: theme.textTheme.labelMd.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            letterSpacing: 1.2,
                           ),
-                          Text(
-                            'OFFICIAL FEED',
-                            style: theme.textTheme.labelMd.copyWith(
-                              color: theme.colorScheme.onSurfaceVariant,
-                              letterSpacing: 1.1,
-                            ),
-                          ),
-                        ],
-                      ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
                 const SizedBox(height: 16),
                 Text(
                   'Clearate provides objective financial data to ensure transparency in every transaction. Our core commitment is to deliver "Financial Truth."',
-                  style: theme.textTheme.bodyLg.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                  style: theme.textTheme.bodyLg.copyWith(height: 1.45),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 14),
                 Container(
-                  padding: const EdgeInsets.all(12),
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: theme.colorScheme.surfaceContainerLow,
-                    border: Border(left: BorderSide(color: theme.colorScheme.primary, width: 4)),
-                    borderRadius: const BorderRadius.horizontal(right: Radius.circular(8)),
+                    color: const Color(0xFFF2F4F6),
+                    borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(
                     'Rates sourced from RBZ via ZimRate API.',
-                    style: theme.textTheme.bodyMd.copyWith(fontWeight: FontWeight.w500),
+                    style: theme.textTheme.bodyMd.copyWith(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 ),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 18),
           Text(
             'DATA PROVIDERS',
             style: theme.textTheme.labelMd.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
-              letterSpacing: 1.1,
+              letterSpacing: 1.3,
             ),
+          ),
+          const SizedBox(height: 10),
+          _ProviderCard(
+            icon: Icons.account_balance,
+            title: 'RBZ (Reserve Bank)',
+            body:
+                'The primary authority for official interbank exchange rates. These rates represent the weighted average of market trades.',
+            action: 'Visit Website',
           ),
           const SizedBox(height: 12),
-          // RBZ Card
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: theme.colorScheme.outlineVariant),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.account_balance, color: theme.colorScheme.primary),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'RBZ (Reserve Bank)',
-                        style: theme.textTheme.headlineMd.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'The primary authority for official interbank exchange rates. These rates represent the weighted average of market trades.',
-                        style: theme.textTheme.bodyMd.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+          _ProviderCard(
+            icon: Icons.api,
+            title: 'ZimRate API',
+            body:
+                'A specialized data aggregator that bridges official banking feeds with digital utility applications for real-time delivery.',
+            footerChip: 'API Connection: Active',
           ),
-          const SizedBox(height: 12),
-          // ZimRate API Card
+          const SizedBox(height: 18),
           Container(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.all(18),
             decoration: BoxDecoration(
-              color: theme.colorScheme.surfaceContainerLowest,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: theme.colorScheme.outlineVariant),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.api, color: theme.colorScheme.primary),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'ZimRate API',
-                        style: theme.textTheme.headlineMd.copyWith(fontWeight: FontWeight.bold, fontSize: 18),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        'A specialized data aggregator that bridges official banking feeds with digital utility applications for real-time delivery.',
-                        style: theme.textTheme.bodyMd.copyWith(color: theme.colorScheme.onSurfaceVariant),
-                      ),
-                      const SizedBox(height: 12),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: theme.colorScheme.surfaceContainerLow,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: Colors.green,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Text(
-                              'API Connection: Active',
-                              style: theme.textTheme.labelMd.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          // Refresh frequency Card
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: theme.colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(12),
+              color: const Color(0xFF10162A),
+              borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -791,40 +1221,476 @@ class _RateSourceScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'REFRESH FREQUENCY',
+                      'Refresh Frequency',
                       style: theme.textTheme.labelMd.copyWith(
-                        color: theme.colorScheme.onPrimaryContainer,
-                        fontSize: 10,
-                        letterSpacing: 1.1,
+                        color: Colors.white.withOpacity(0.6),
+                        letterSpacing: 1.2,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Text(
                       'Every 15 Minutes',
                       style: theme.textTheme.headlineMd.copyWith(
                         color: Colors.white,
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
                       ),
                     ),
                   ],
                 ),
-                Icon(
-                  Icons.update,
-                  size: 40,
-                  color: theme.colorScheme.onPrimaryContainer.withOpacity(0.5),
-                ),
+                const Icon(Icons.update, color: Colors.white54, size: 34),
               ],
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 18),
           Text(
             'Clearate is a public service utility. While we strive for 100% accuracy, users should verify critical financial data with their local banking institutions.',
-            style: theme.textTheme.labelMd.copyWith(
+            style: theme.textTheme.bodyMd.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
-              height: 1.3,
+              height: 1.45,
             ),
           ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
+          const Center(child: _ClearateLogoMark(size: 52, padding: 10)),
+          const SizedBox(height: 8),
+          Center(
+            child: Text(
+              'Clearate',
+              style: theme.textTheme.bodyLg.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+          const SizedBox(height: 12),
+          Center(
+            child: Container(
+              width: 140,
+              height: 1,
+              color: theme.colorScheme.outlineVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SupportPill extends StatelessWidget {
+  const _SupportPill({
+    required this.icon,
+    required this.title,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLowest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Row(
+          children: [
+            Icon(icon, color: theme.colorScheme.secondary),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                title,
+                style: theme.textTheme.bodyLg.copyWith(fontWeight: FontWeight.w500),
+              ),
+            ),
+            Icon(Icons.chevron_right, color: theme.colorScheme.outlineVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _WhatsAppRow extends StatelessWidget {
+  const _WhatsAppRow({
+    required this.number,
+    required this.uri,
+  });
+
+  final String number;
+  final Uri uri;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: () => launchUrl(uri, mode: LaunchMode.externalApplication),
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+        ),
+        child: Row(
+          children: [
+            const Icon(Icons.chat_bubble_outline, color: Color(0xFF0B1C30)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                number,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Color(0xFF0B1C30)),
+              ),
+            ),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFD3E4FE),
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: const Text(
+                'WhatsApp',
+                style: TextStyle(fontWeight: FontWeight.w600, color: Color(0xFF54647A)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FaqAccordion extends StatelessWidget {
+  const _FaqAccordion({
+    required this.title,
+    required this.body,
+    required this.positiveLabel,
+    required this.positiveText,
+    required this.dangerLabel,
+    required this.dangerText,
+    required this.infoLabel,
+    required this.infoText,
+  });
+
+  final String title;
+  final String body;
+  final String positiveLabel;
+  final String positiveText;
+  final String dangerLabel;
+  final String dangerText;
+  final String infoLabel;
+  final String infoText;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: ExpansionTile(
+        title: Text(title, style: theme.textTheme.bodyLg.copyWith(fontWeight: FontWeight.w700)),
+        initiallyExpanded: true,
+        iconColor: theme.colorScheme.onSurface,
+        collapsedIconColor: theme.colorScheme.onSurfaceVariant,
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          Text(body, style: theme.textTheme.bodyMd.copyWith(height: 1.5)),
+          const SizedBox(height: 14),
+          _FaqVerdictChip(
+            color: const Color(0xFFE8F5E9),
+            textColor: const Color(0xFF1B5E20),
+            label: positiveLabel,
+            body: positiveText,
+            icon: Icons.check_circle,
+          ),
+          const SizedBox(height: 10),
+          _FaqVerdictChip(
+            color: const Color(0xFFFFEBEE),
+            textColor: const Color(0xFFB71C1C),
+            label: dangerLabel,
+            body: dangerText,
+            icon: Icons.warning,
+          ),
+          const SizedBox(height: 10),
+          _FaqVerdictChip(
+            color: const Color(0xFFE8EEF8),
+            textColor: const Color(0xFF54647A),
+            label: infoLabel,
+            body: infoText,
+            icon: Icons.info,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FaqItem extends StatelessWidget {
+  const _FaqItem({required this.title});
+
+  final String title;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: ExpansionTile(
+        title: Text(title, style: theme.textTheme.bodyLg.copyWith(fontWeight: FontWeight.w700)),
+        iconColor: theme.colorScheme.onSurface,
+        collapsedIconColor: theme.colorScheme.onSurfaceVariant,
+        childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+        children: [
+          const Divider(height: 1),
+          const SizedBox(height: 12),
+          Text(
+            'This item is covered in the stitched Clearate help flow. Open Rates once while online, then the app keeps working offline with your last saved reference rates.',
+            style: theme.textTheme.bodyMd.copyWith(height: 1.5),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FaqVerdictChip extends StatelessWidget {
+  const _FaqVerdictChip({
+    required this.color,
+    required this.textColor,
+    required this.label,
+    required this.body,
+    required this.icon,
+  });
+
+  final Color color;
+  final Color textColor;
+  final String label;
+  final String body;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(12)),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: textColor, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              '$label  -  $body',
+              style: Theme.of(context).textTheme.bodyMd.copyWith(
+                    color: textColor,
+                    fontWeight: FontWeight.w600,
+                  ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LegalCard extends StatelessWidget {
+  const _LegalCard({
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.calloutTitle,
+    this.calloutBody,
+    this.calloutColor,
+    this.calloutTextColor,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+  final String? calloutTitle;
+  final String? calloutBody;
+  final Color? calloutColor;
+  final Color? calloutTextColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final textColor = calloutTextColor ?? const Color(0xFF191C1E);
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x10000000),
+            blurRadius: 10,
+            offset: Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFF2F4F6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: theme.colorScheme.onSurfaceVariant, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Text(
+                title,
+                style: theme.textTheme.headlineMd.copyWith(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Text(body, style: theme.textTheme.bodyMd.copyWith(height: 1.5)),
+          if (calloutTitle != null && calloutBody != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: calloutColor ?? const Color(0xFFF2F4F6),
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: const Color(0xFFE0E3E5)),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.info_outline, color: textColor, size: 18),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          calloutTitle!,
+                          style: theme.textTheme.labelMd.copyWith(
+                            color: textColor,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          calloutBody!,
+                          style: theme.textTheme.bodyMd.copyWith(color: textColor),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _ProviderCard extends StatelessWidget {
+  const _ProviderCard({
+    required this.icon,
+    required this.title,
+    required this.body,
+    this.action,
+    this.footerChip,
+  });
+
+  final IconData icon;
+  final String title;
+  final String body;
+  final String? action;
+  final String? footerChip;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: theme.colorScheme.onSurface),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.headlineMd.copyWith(fontWeight: FontWeight.w700),
+                ),
+                const SizedBox(height: 4),
+                Text(body, style: theme.textTheme.bodyMd.copyWith(height: 1.4)),
+                if (action != null) ...[
+                  const SizedBox(height: 8),
+                  TextButton(
+                    onPressed: () {},
+                    style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(action!, style: theme.textTheme.labelMd.copyWith(fontWeight: FontWeight.w700)),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.open_in_new, size: 16),
+                      ],
+                    ),
+                  ),
+                ],
+                if (footerChip != null) ...[
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFF2F4F6),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(color: Color(0xFF1B5E20), shape: BoxShape.circle),
+                        ),
+                        const SizedBox(width: 8),
+                        Text(
+                          footerChip!,
+                          style: theme.textTheme.labelMd.copyWith(color: theme.colorScheme.onSurfaceVariant),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
         ],
       ),
     );

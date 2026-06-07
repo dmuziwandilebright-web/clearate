@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/app_scope.dart';
 import '../../domain/currency.dart';
@@ -9,7 +9,6 @@ import '../../services/share_service.dart';
 import '../../services/verdict_engine.dart';
 import '../formatters.dart';
 import '../theme.dart';
-import '../widgets/section_card.dart';
 
 class VerdictScreen extends StatefulWidget {
   const VerdictScreen({super.key});
@@ -19,92 +18,132 @@ class VerdictScreen extends StatefulWidget {
 }
 
 class _VerdictScreenState extends State<VerdictScreen> {
-  final _itemName = TextEditingController();
-  final _itemPrice = TextEditingController();
-  final _askedPay = TextEditingController();
+  final _priceKnownController = TextEditingController();
+  final _priceQuotedController = TextEditingController();
+  final _shareKey = GlobalKey();
+  final _shareService = ShareService();
+  int _shareFailures = 0;
 
   Currency _from = Currency.usd;
   Currency _to = Currency.zwg;
-
   VerdictResult? _result;
-
-  final _shareKey = GlobalKey();
-  final _shareService = ShareService();
+  bool _isChecking = false;
+  bool _knownError = false;
+  bool _quotedError = false;
 
   @override
   void dispose() {
-    _itemName.dispose();
-    _itemPrice.dispose();
-    _askedPay.dispose();
+    _priceKnownController.dispose();
+    _priceQuotedController.dispose();
     super.dispose();
   }
 
-  void _check() {
-    final snapshot = AppScope.of(context).ratesController.state.snapshot;
-    if (snapshot == null) {
-      setState(() => _result = null);
+  Future<void> _check() async {
+    final controller = AppScope.of(context).ratesController;
+    final snapshot = controller.state.snapshot;
+    final theme = Theme.of(context);
+
+    final known = double.tryParse(_priceKnownController.text.trim()) ?? 0;
+    final quoted = double.tryParse(_priceQuotedController.text.trim()) ?? 0;
+
+    setState(() {
+      _knownError = known <= 0;
+      _quotedError = quoted <= 0;
+    });
+
+    if (_knownError || _quotedError) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No saved rates yet. Open Rates while online to fetch official rates.')),
+        SnackBar(
+          backgroundColor: theme.colorScheme.error,
+          content: const Text('Please enter an amount.'),
+        ),
       );
       return;
     }
 
-    final itemPrice = double.tryParse(_itemPrice.text.trim()) ?? 0;
-    final asked = double.tryParse(_askedPay.text.trim()) ?? 0;
-    if (itemPrice <= 0) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Enter a valid item price.')));
+    if (_from == _to) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Select two different currencies to compare.')),
+      );
+      return;
+    }
+
+    if (snapshot == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rates are not loaded yet. Open Rates while online first.')),
+      );
       return;
     }
 
     final officialRate = snapshot.rate(_from, _to);
+    if (officialRate <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Pula rates are not loaded yet. Open Rates while online first.')),
+      );
+      return;
+    }
+
+    setState(() => _isChecking = true);
+    await Future<void>.delayed(const Duration(milliseconds: 400));
+
     final engine = VerdictEngine(AppScope.of(context).config);
-    final res = engine.evaluate(itemPrice: itemPrice, askedToPay: asked, officialRate: officialRate);
-    setState(() => _result = res);
+    final result = engine.evaluate(
+      itemPrice: known,
+      askedToPay: quoted,
+      officialRate: officialRate,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _result = result;
+      _isChecking = false;
+    });
   }
 
   Future<void> _shareImage() async {
     final boundary = _shareKey.currentContext?.findRenderObject();
     if (boundary is! RenderRepaintBoundary) return;
 
-    final item = _itemName.text.trim();
-    final name = item.isEmpty ? 'price_check' : item.toLowerCase().replaceAll(RegExp(r'[^a-z0-9]+'), '_');
+    final shareText = _buildShareText();
+    try {
+      await _shareService.sharePngFromBoundary(
+        boundary: boundary,
+        fileNameBase: 'clearate_verdict',
+        text: shareText,
+      );
+      _shareFailures = 0;
+    } catch (_) {
+      _shareFailures += 1;
+      if (!mounted) return;
 
-    await _shareService.sharePngFromBoundary(
-      boundary: boundary,
-      fileNameBase: 'clearate_$name',
-      text: 'Check my price check on Clearate!',
-    );
+      if (_shareFailures >= 2) {
+        await _shareService.shareText(shareText);
+        _shareFailures = 0;
+        return;
+      }
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not generate share image. Try again.')),
+      );
+    }
   }
 
-  Future<void> _shareTextWhatsApp() async {
-    if (_result == null) return;
-    
-    final item = _itemName.text.trim();
-    final itemStr = item.isEmpty ? 'This purchase' : '*$item*';
-
-    final text = switch (_result!.kind) {
-      VerdictKind.fair => 
-        'Clearate Price Verdict for $itemStr: *FAIR!*\n'
-        'Official rate: 1 ${_from.uiLabel} = ${formatRate(_result!.officialRate)} ${_to.uiLabel}\n'
-        'Shop rate: 1 ${_from.uiLabel} = ${formatRate(_result!.shopRate)} ${_to.uiLabel}\n'
-        'This price is within the acceptable fair-market range.',
-      VerdictKind.overcharged => 
-        'Clearate Price Verdict for $itemStr: *OVERCHARGED!*\n'
-        'Official rate: 1 ${_from.uiLabel} = ${formatRate(_result!.officialRate)} ${_to.uiLabel}\n'
-        'Shop rate: 1 ${_from.uiLabel} = ${formatRate(_result!.shopRate)} ${_to.uiLabel}\n'
-        'You are paying ${formatMoney(_result!.deltaAmount)} ${_to.uiLabel} more than fair price.',
-      VerdictKind.undervalued => 
-        'Clearate Price Verdict for $itemStr: *UNDERVALUED!*\n'
-        'Official rate: 1 ${_from.uiLabel} = ${formatRate(_result!.officialRate)} ${_to.uiLabel}\n'
-        'Shop rate: 1 ${_from.uiLabel} = ${formatRate(_result!.shopRate)} ${_to.uiLabel}\n'
-        'This price is suspiciously below market average.',
-    };
-
-    final uri = Uri.parse('https://wa.me/?text=${Uri.encodeComponent(text)}');
-    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Could not open WhatsApp.')));
+  String _buildShareText() {
+    final result = _result;
+    if (result == null) {
+      return 'Clearate price check';
     }
+
+    final verdictWord = switch (result.kind) {
+      VerdictKind.fair => 'FAIR',
+      VerdictKind.overcharged => 'OVERCHARGED',
+      VerdictKind.undervalued => 'UNDERVALUED',
+    };
+    final amount = formatCurrencyAmount(_to, result.deltaAmount);
+    final fair = formatCurrencyAmount(_to, result.expectedPay);
+    final shop = formatCurrencyAmount(_to, result.askedToPay);
+    return 'Clearate verdict: $verdictWord by $amount on a ${_from.uiLabel} to ${_to.uiLabel} check. '
+        'Fair price $fair, shop price $shop.';
   }
 
   @override
@@ -112,10 +151,10 @@ class _VerdictScreenState extends State<VerdictScreen> {
     final theme = Theme.of(context);
 
     return ListView(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
       children: [
         Text(
-          'Fair Price Verdict',
+          'Price Check',
           style: theme.textTheme.headlineLgMobile.copyWith(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 4),
@@ -124,469 +163,480 @@ class _VerdictScreenState extends State<VerdictScreen> {
           style: theme.textTheme.bodyMd.copyWith(color: theme.colorScheme.onSurfaceVariant),
         ),
         const SizedBox(height: 20),
-        // Item Name input
-        TextField(
-          controller: _itemName,
-          textInputAction: TextInputAction.next,
-          decoration: const InputDecoration(
-            labelText: 'What are you buying? (Optional)',
-            hintText: 'bread, airtime, fuel…',
-          ),
-        ),
-        const SizedBox(height: 16),
-        // Original Currency Input Card
-        _InputCard(
-          label: 'Item Price (Original Currency)',
-          controller: _itemPrice,
+        _AmountCard(
+          icon: Icons.account_balance_outlined,
+          title: 'Price you know in',
           currency: _from,
-          onCurrencyChanged: (c) => setState(() => _from = c),
+          onCurrencyChanged: (value) => setState(() => _from = value),
+          controller: _priceKnownController,
+          error: _knownError,
+          hint: '0.00',
         ),
         const SizedBox(height: 16),
-        // Asked Currency Input Card
-        _InputCard(
-          label: 'What are you being asked to pay?',
-          controller: _askedPay,
+        _AmountCard(
+          icon: Icons.sell_outlined,
+          title: 'Price they want in',
           currency: _to,
-          onCurrencyChanged: (c) => setState(() => _to = c),
+          onCurrencyChanged: (value) => setState(() => _to = value),
+          controller: _priceQuotedController,
+          error: _quotedError,
+          hint: '0.00',
         ),
-        const SizedBox(height: 20),
-        // Check button
+        const SizedBox(height: 18),
         SizedBox(
           height: 48,
-          child: FilledButton.icon(
+          child: FilledButton(
             style: FilledButton.styleFrom(
-              backgroundColor: theme.colorScheme.primary,
-              foregroundColor: theme.colorScheme.onPrimary,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              backgroundColor: Colors.black,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
             ),
-            onPressed: _check,
-            icon: const Icon(Icons.gavel),
-            label: Text(
-              'Check Verdict',
-              style: theme.textTheme.headlineMd.copyWith(
-                color: theme.colorScheme.onPrimary,
-                fontSize: 16,
-              ),
+            onPressed: _isChecking ? null : _check,
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 180),
+              child: _isChecking
+                  ? const SizedBox(
+                      key: ValueKey('loading'),
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2.4,
+                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                      ),
+                    )
+                  : Row(
+                      key: const ValueKey('idle'),
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          'Check Price',
+                          style: theme.textTheme.headlineMd.copyWith(
+                            color: Colors.white,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        const Icon(Icons.gavel, color: Colors.white),
+                      ],
+                    ),
             ),
           ),
         ),
-        const SizedBox(height: 24),
-        // Results Area
+        if (_from == _to) ...[
+          const SizedBox(height: 8),
+          Text(
+            'Select two different currencies to compare.',
+            style: theme.textTheme.bodyMd.copyWith(color: theme.colorScheme.undervaluedAmber),
+          ),
+        ],
+        const SizedBox(height: 18),
         RepaintBoundary(
           key: _shareKey,
-          child: _result == null
-              ? const _EmptyVerdict()
-              : _VerdictResultCard(
-                  result: _result!,
-                  from: _from,
-                  to: _to,
-                  itemName: _itemName.text.trim(),
-                ),
-        ),
-        const SizedBox(height: 16),
-        if (_result != null) ...[
-          // Share Image Button
-          SizedBox(
-            height: 48,
-            child: OutlinedButton.icon(
-              onPressed: _shareImage,
-              icon: const Icon(Icons.image_outlined),
-              label: const Text('Share Verdict Card'),
-              style: OutlinedButton.styleFrom(
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
+          child: AnimatedSwitcher(
+            duration: const Duration(milliseconds: 250),
+            transitionBuilder: (child, animation) {
+              final slide = Tween<Offset>(
+                begin: const Offset(0, 0.08),
+                end: Offset.zero,
+              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+              return FadeTransition(
+                opacity: animation,
+                child: SlideTransition(position: slide, child: child),
+              );
+            },
+            child: _result == null
+                ? const _EmptyVerdictArea(key: ValueKey('empty'))
+                : _VerdictCard(
+                    key: ValueKey('${_result!.kind}-${_result!.askedToPay}-${_result!.itemPrice}'),
+                    result: _result!,
+                    from: _from,
+                    to: _to,
+                  ),
           ),
-          const SizedBox(height: 12),
-          // Share WhatsApp Button
+        ),
+        if (_result != null) ...[
+          const SizedBox(height: 16),
           SizedBox(
             height: 48,
             child: FilledButton.icon(
-              onPressed: _shareTextWhatsApp,
-              icon: const Icon(Icons.share, color: Colors.white),
-              label: const Text('Share Price Check'),
+              onPressed: _shareImage,
               style: FilledButton.styleFrom(
-                backgroundColor: const Color(0xFF25D366),
+                backgroundColor: _result!.kind == VerdictKind.fair
+                    ? const Color(0xFF1B5E20)
+                    : _result!.kind == VerdictKind.overcharged
+                        ? const Color(0xFFB71C1C)
+                        : const Color(0xFFF57F17),
                 foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               ),
+              icon: const Icon(Icons.share),
+              label: const Text('Share Price Check'),
             ),
           ),
         ],
-        const SizedBox(height: 24),
-        // Info Banner
+        const SizedBox(height: 18),
         Container(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: theme.colorScheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(14),
           ),
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.info, color: theme.colorScheme.onSecondaryContainer),
-              const SizedBox(width: 12),
+              Icon(Icons.info_outline, color: theme.colorScheme.onSecondaryContainer),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  "Verdicts are based on the latest central bank mid-rates and a standard 3% retail margin.",
+                  'Price checks are based on the latest central bank mid-rates and a standard 8% retail margin.',
                   style: theme.textTheme.labelMd.copyWith(
                     color: theme.colorScheme.onSecondaryContainer,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ),
         ),
-        const SizedBox(height: 24),
       ],
     );
   }
 }
 
-class _InputCard extends StatelessWidget {
-  const _InputCard({
-    required this.label,
-    required this.controller,
+class _AmountCard extends StatelessWidget {
+  const _AmountCard({
+    required this.icon,
+    required this.title,
     required this.currency,
     required this.onCurrencyChanged,
+    required this.controller,
+    required this.error,
+    required this.hint,
   });
 
-  final String label;
-  final TextEditingController controller;
+  final IconData icon;
+  final String title;
   final Currency currency;
   final ValueChanged<Currency> onCurrencyChanged;
+  final TextEditingController controller;
+  final bool error;
+  final String hint;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: error ? theme.colorScheme.error : theme.colorScheme.outlineVariant),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x10000000),
+            blurRadius: 8,
+            offset: Offset(0, 2),
+          ),
+        ],
       ),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: theme.textTheme.labelMd.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 4),
           Row(
             children: [
-              Expanded(
-                child: TextField(
-                  controller: controller,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  decoration: const InputDecoration(
-                    hintText: '0.00',
-                    border: InputBorder.none,
-                    enabledBorder: InputBorder.none,
-                    focusedBorder: InputBorder.none,
-                    filled: false,
-                    contentPadding: EdgeInsets.zero,
-                  ),
-                  style: theme.textTheme.statLg.copyWith(
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
+              Icon(icon, size: 18, color: theme.colorScheme.onSurfaceVariant),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: theme.textTheme.labelMd.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
                 ),
               ),
               const SizedBox(width: 8),
-              Container(
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                padding: const EdgeInsets.symmetric(horizontal: 12),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<Currency>(
-                    value: currency,
-                    items: Currency.values
-                        .map((c) => DropdownMenuItem(
-                              value: c,
-                              child: Text(
-                                c.uiLabel,
-                                style: theme.textTheme.labelMd.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16,
-                                ),
-                              ),
-                            ))
-                        .toList(),
-                    onChanged: (v) {
-                      if (v != null) onCurrencyChanged(v);
-                    },
-                  ),
+              _CurrencyChip(
+                currency: currency,
+                onChanged: onCurrencyChanged,
+              ),
+              const Spacer(),
+            ],
+          ),
+          const SizedBox(height: 14),
+          TextField(
+            controller: controller,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[0-9.]'))],
+            cursorColor: theme.colorScheme.primary,
+            style: theme.textTheme.statLg.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontSize: 40,
+              height: 1.0,
+            ),
+            decoration: InputDecoration(
+              hintText: hint,
+              hintStyle: theme.textTheme.statLg.copyWith(
+                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.4),
+                fontSize: 40,
+                height: 1.0,
+              ),
+              border: InputBorder.none,
+              isDense: true,
+              contentPadding: EdgeInsets.zero,
+            ),
+          ),
+          if (error) ...[
+            const SizedBox(height: 8),
+            Text(
+              'Please enter an amount.',
+              style: theme.textTheme.bodyMd.copyWith(color: theme.colorScheme.error),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _CurrencyChip extends StatelessWidget {
+  const _CurrencyChip({
+    required this.currency,
+    required this.onChanged,
+  });
+
+  final Currency currency;
+  final ValueChanged<Currency> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return PopupMenuButton<Currency>(
+      onSelected: onChanged,
+      itemBuilder: (context) => Currency.values
+          .map(
+            (value) => PopupMenuItem<Currency>(
+              value: value,
+              child: Text(value.uiLabel),
+            ),
+          )
+          .toList(),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              currency.uiLabel,
+              style: theme.textTheme.labelMd.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(width: 4),
+            Icon(Icons.keyboard_arrow_down, size: 18, color: theme.colorScheme.onSurfaceVariant),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _EmptyVerdictArea extends StatelessWidget {
+  const _EmptyVerdictArea({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      constraints: const BoxConstraints(minHeight: 180),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.search_outlined,
+                size: 54,
+                color: theme.colorScheme.onSurfaceVariant.withOpacity(0.75),
+              ),
+              const SizedBox(height: 12),
+              Text(
+                'Enter details to see if the price is fair.',
+                textAlign: TextAlign.center,
+                style: theme.textTheme.bodyLg.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _EmptyVerdict extends StatelessWidget {
-  const _EmptyVerdict();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(32),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: theme.colorScheme.outlineVariant,
-          style: BorderStyle.solid,
         ),
       ),
-      child: Column(
-        children: [
-          Icon(
-            Icons.search,
-            size: 48,
-            color: theme.colorScheme.outline,
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Enter details to see if the price is fair.',
-            style: theme.textTheme.bodyLg.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-            textAlign: TextAlign.center,
-          ),
-        ],
-      ),
     );
   }
 }
 
-class _VerdictResultCard extends StatelessWidget {
-  const _VerdictResultCard({
+class _VerdictCard extends StatelessWidget {
+  const _VerdictCard({
+    super.key,
     required this.result,
     required this.from,
     required this.to,
-    required this.itemName,
   });
 
   final VerdictResult result;
   final Currency from;
   final Currency to;
-  final String itemName;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    final (badgeBg, badgeFg, badgeIcon, badgeText, headlineText, descText, cardBg) = switch (result.kind) {
-      VerdictKind.fair => (
-          theme.colorScheme.fairGreenBg,
-          theme.colorScheme.fairGreen,
-          Icons.check_circle,
-          'FAIR',
-          'Great Price!',
-          'This price is within the acceptable fair-market range.',
-          theme.colorScheme.fairGreenBg,
-        ),
-      VerdictKind.overcharged => (
-          theme.colorScheme.overchargeRedBg,
-          theme.colorScheme.overchargeRed,
-          Icons.cancel,
-          'OVERCHARGED',
-          'Price is too high',
-          "You're paying ~${(result.shopRate / result.officialRate - 1.0).clamp(0.0, 9.9) * 100.0 == 0 ? 'some' : (result.shopRate / result.officialRate - 1.0).clamp(0.0, 9.9).multiplyBy100().toStringAsFixed(0)}% more than the market fair rate.",
-          theme.colorScheme.overchargeRedBg,
-        ),
-      VerdictKind.undervalued => (
-          theme.colorScheme.undervaluedAmberBg,
-          theme.colorScheme.undervaluedAmber,
-          Icons.error_outline,
-          'UNDERVALUED',
-          'Suspiciously low',
-          'This price is significantly below market average. Verify item authenticity.',
-          theme.colorScheme.undervaluedAmberBg,
-        ),
+    final color = switch (result.kind) {
+      VerdictKind.fair => const Color(0xFFE0F5E6),
+      VerdictKind.overcharged => const Color(0xFFB71C1C),
+      VerdictKind.undervalued => const Color(0xFFF57F17),
+    };
+    final textColor = result.kind == VerdictKind.fair ? const Color(0xFF1B5E20) : Colors.white;
+    final icon = switch (result.kind) {
+      VerdictKind.fair => Icons.check_circle,
+      VerdictKind.overcharged => Icons.close,
+      VerdictKind.undervalued => Icons.warning_amber,
+    };
+    final verdictWord = switch (result.kind) {
+      VerdictKind.fair => 'FAIR',
+      VerdictKind.overcharged => 'OVERCHARGED',
+      VerdictKind.undervalued => 'UNDERVALUED',
+    };
+    final description = switch (result.kind) {
+      VerdictKind.fair => 'This price is honest. You are paying the correct official rate.',
+      VerdictKind.overcharged => 'You are being asked for too much. You are being overcharged by ${formatCurrencyAmount(to, result.deltaAmount)}.',
+      VerdictKind.undervalued => 'This price is very low. You are being undercharged by ${formatCurrencyAmount(to, result.deltaAmount)}.',
+    };
+    final deltaLine = switch (result.kind) {
+      VerdictKind.fair => 'You are within ${formatCurrencyAmount(to, result.deltaAmount)} of the fair price.',
+      VerdictKind.overcharged => 'Overcharged by ${formatCurrencyAmount(to, result.deltaAmount)}.',
+      VerdictKind.undervalued => 'Undercharged by ${formatCurrencyAmount(to, result.deltaAmount)}.',
     };
 
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
+        color: color,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: result.kind == VerdictKind.fair
+              ? const Color(0xFF8ED8A5)
+              : result.kind == VerdictKind.overcharged
+                  ? const Color(0xFFCC5B5B)
+                  : const Color(0xFFD89A0F),
+        ),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          Container(
+            width: 90,
+            height: 90,
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(result.kind == VerdictKind.fair ? 0.3 : 0.18),
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon, size: 48, color: textColor),
+          ),
+          const SizedBox(height: 18),
+          Text(
+            verdictWord,
+            style: theme.textTheme.displayLg.copyWith(
+              color: textColor,
+              fontSize: 34,
+              fontWeight: FontWeight.w700,
+            ),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 10),
+          Text(
+            description,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyLg.copyWith(
+              color: textColor,
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(result.kind == VerdictKind.fair ? 0.28 : 0.16),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Text(
+              deltaLine,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.labelMd.copyWith(
+                color: textColor,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 18),
+          _ComparisonPanel(result: result, from: from, to: to, textColor: textColor),
+        ],
+      ),
+    );
+  }
+}
+
+class _ComparisonPanel extends StatelessWidget {
+  const _ComparisonPanel({
+    required this.result,
+    required this.from,
+    required this.to,
+    required this.textColor,
+  });
+
+  final VerdictResult result;
+  final Currency from;
+  final Currency to;
+  final Color textColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final fair = result.expectedPay;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: Colors.white.withOpacity(0.22),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: Colors.white.withOpacity(0.2)),
       ),
       child: Column(
         children: [
-          // Header alert box
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: cardBg,
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(15),
-                topRight: Radius.circular(15),
-              ),
-            ),
-            child: Column(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.25),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(
-                    badgeIcon,
-                    size: 48,
-                    color: badgeFg,
-                  ),
-                ),
-                const SizedBox(height: 12),
-                Text(
-                  badgeText,
-                  style: theme.textTheme.headlineLgMobile.copyWith(
-                    fontWeight: FontWeight.w800,
-                    color: badgeFg,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  headlineText,
-                  style: theme.textTheme.headlineMd.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  descText,
-                  style: theme.textTheme.bodyMd.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
-            ),
+          _ComparisonRow(
+            label: 'Fair Price',
+            value: formatCurrencyAmount(to, fair),
+            valueColor: textColor,
           ),
-          // Price breakdown box
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  'PRICE COMPARISON',
-                  style: theme.textTheme.labelMd.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    letterSpacing: 1.1,
-                  ),
-                ),
-                const SizedBox(height: 16),
-                // Fair Price
-                Row(
-                  children: [
-                    Container(
-                      width: 4,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: theme.colorScheme.onSecondaryContainer,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Fair Price',
-                          style: theme.textTheme.bodyMd.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        Text(
-                          '${formatMoney(result.expectedPay)} ${to.uiLabel}',
-                          style: theme.textTheme.headlineMd.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Icon(
-                      Icons.check_circle,
-                      color: theme.colorScheme.onSecondaryContainer,
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                const Divider(),
-                const SizedBox(height: 12),
-                // Shop Price (Asked Pay)
-                Row(
-                  children: [
-                    Container(
-                      width: 4,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: result.kind == VerdictKind.overcharged
-                            ? theme.colorScheme.overchargeRed
-                            : (result.kind == VerdictKind.undervalued
-                                ? theme.colorScheme.undervaluedAmber
-                                : theme.colorScheme.fairGreen),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Shop Price',
-                          style: theme.textTheme.bodyMd.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
-                          ),
-                        ),
-                        Text(
-                          '${formatMoney(result.shopRate * (result.expectedPay / result.officialRate))} ${to.uiLabel}',
-                          style: theme.textTheme.headlineMd.copyWith(
-                            fontWeight: FontWeight.bold,
-                            color: result.kind == VerdictKind.overcharged
-                                ? theme.colorScheme.overchargeRed
-                                : (result.kind == VerdictKind.undervalued
-                                    ? theme.colorScheme.undervaluedAmber
-                                    : theme.colorScheme.fairGreen),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const Spacer(),
-                    Icon(
-                      result.kind == VerdictKind.overcharged
-                          ? Icons.trending_up
-                          : (result.kind == VerdictKind.undervalued ? Icons.trending_down : Icons.check_circle),
-                      color: result.kind == VerdictKind.overcharged
-                          ? theme.colorScheme.overchargeRed
-                          : (result.kind == VerdictKind.undervalued
-                              ? theme.colorScheme.undervaluedAmber
-                              : theme.colorScheme.fairGreen),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+          const SizedBox(height: 14),
+          Divider(color: Colors.white.withOpacity(0.35)),
+          const SizedBox(height: 14),
+          _ComparisonRow(
+            label: 'Shop Price',
+            value: formatCurrencyAmount(to, result.askedToPay),
+            valueColor: textColor,
+            labelTrailing: result.kind == VerdictKind.fair ? Icons.check_circle_outline : Icons.trending_up,
           ),
         ],
       ),
@@ -594,6 +644,65 @@ class _VerdictResultCard extends StatelessWidget {
   }
 }
 
-extension DoubleExt on double {
-  double multiplyBy100() => this * 100.0;
+class _ComparisonRow extends StatelessWidget {
+  const _ComparisonRow({
+    required this.label,
+    required this.value,
+    required this.valueColor,
+    this.labelTrailing,
+  });
+
+  final String label;
+  final String value;
+  final Color valueColor;
+  final IconData? labelTrailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Container(
+          width: 4,
+          height: 48,
+          decoration: BoxDecoration(
+            color: valueColor,
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Text(
+                    label.toUpperCase(),
+                    style: theme.textTheme.labelMd.copyWith(
+                      color: valueColor,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  if (labelTrailing != null) ...[
+                    const SizedBox(width: 6),
+                    Icon(labelTrailing, size: 16, color: valueColor),
+                  ],
+                ],
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: theme.textTheme.statLg.copyWith(
+                  color: valueColor,
+                  fontSize: 32,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 }

@@ -14,7 +14,9 @@ class ShareService {
   }) async {
     final image = await boundary.toImage(pixelRatio: 3.0);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
-    if (byteData == null) return;
+    if (byteData == null) {
+      throw StateError('Could not capture share image.');
+    }
     final bytes = byteData.buffer.asUint8List();
 
     final dir = await getTemporaryDirectory();
@@ -26,5 +28,8 @@ class ShareService {
       text: text,
     );
   }
-}
 
+  Future<void> shareText(String text) async {
+    await Share.share(text);
+  }
+}

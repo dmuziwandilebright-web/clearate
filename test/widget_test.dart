@@ -17,6 +17,8 @@ void main() {
       'usd_zar': 18.43,
       'usd_zwg': 13.60,
       'zar_zwg': 0.74,
+      'bwp_usd': 0.073,
+      'bwp_zar': 1.35,
       'server_time': '2026-06-03T08:00:00Z',
       'source': 'RBZ interbank',
       'fetched_at': '2026-06-03T08:00:00Z',

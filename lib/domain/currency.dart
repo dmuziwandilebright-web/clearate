@@ -1,7 +1,8 @@
 enum Currency {
   usd(code: 'USD', uiLabel: 'USD'),
-  zar(code: 'ZAR', uiLabel: 'ZAR'),
-  zwg(code: 'ZWG', uiLabel: 'ZiG');
+  zar(code: 'ZAR', uiLabel: 'Rand'),
+  zwg(code: 'ZWG', uiLabel: 'ZiG'),
+  bwp(code: 'BWP', uiLabel: 'Pula');
 
   const Currency({required this.code, required this.uiLabel});
 
@@ -17,4 +18,3 @@ enum Currency {
     );
   }
 }
-

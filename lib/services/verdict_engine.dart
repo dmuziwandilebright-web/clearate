@@ -21,37 +21,40 @@ class VerdictEngine {
     final shopRate = askedToPay / itemPrice;
     final overEdge = officialRate * (1 + _config.overchargeThreshold);
     final underEdge = officialRate * (1 - _config.undervaluedThreshold);
+    final fairPay = itemPrice * officialRate;
 
     if (shopRate > overEdge) {
-      final expectedPay = itemPrice * overEdge;
       return VerdictResult(
         kind: VerdictKind.overcharged,
         officialRate: officialRate,
         shopRate: shopRate,
-        expectedPay: expectedPay,
-        deltaAmount: askedToPay - expectedPay,
+        expectedPay: fairPay,
+        deltaAmount: askedToPay - fairPay,
+        itemPrice: itemPrice,
+        askedToPay: askedToPay,
       );
     }
 
     if (shopRate < underEdge) {
-      final expectedPay = itemPrice * underEdge;
       return VerdictResult(
         kind: VerdictKind.undervalued,
         officialRate: officialRate,
         shopRate: shopRate,
-        expectedPay: expectedPay,
-        deltaAmount: expectedPay - askedToPay,
+        expectedPay: fairPay,
+        deltaAmount: fairPay - askedToPay,
+        itemPrice: itemPrice,
+        askedToPay: askedToPay,
       );
     }
 
-    final expectedPay = itemPrice * officialRate;
     return VerdictResult(
       kind: VerdictKind.fair,
       officialRate: officialRate,
       shopRate: shopRate,
-      expectedPay: expectedPay,
-      deltaAmount: (askedToPay - expectedPay).abs(),
+      expectedPay: fairPay,
+      deltaAmount: (askedToPay - fairPay).abs(),
+      itemPrice: itemPrice,
+      askedToPay: askedToPay,
     );
   }
 }
-

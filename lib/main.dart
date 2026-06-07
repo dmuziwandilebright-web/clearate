@@ -34,9 +34,10 @@ class ClearateApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Clearate',
+      debugShowCheckedModeBanner: false,
+      themeMode: ThemeMode.light,
       theme: buildClearateTheme(),
       home: const HomeShell(),
     );
   }
 }
-
