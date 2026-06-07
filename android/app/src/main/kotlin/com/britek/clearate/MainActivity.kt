@@ -1,4 +1,4 @@
-package com.example.clearate
+package com.britek.clearate
 
 import io.flutter.embedding.android.FlutterActivity
 

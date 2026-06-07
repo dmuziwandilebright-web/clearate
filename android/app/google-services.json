@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "231487191488",
+    "project_id": "clearate",
+    "storage_bucket": "clearate.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:231487191488:android:3a0df53d8de4b13907b025",
+        "android_client_info": {
+          "package_name": "com.britek.clearate"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBPexH6Fns05evgRj0y1KGEkgpWMdpE_9E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
