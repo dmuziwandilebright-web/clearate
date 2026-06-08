@@ -44,22 +44,27 @@ class _HomeShellState extends State<HomeShell> {
           const SizedBox(width: 4),
         ],
       ),
-      body: Stack(
-        children: [
-          for (var i = 0; i < _tabs.length; i++)
-            IgnorePointer(
-              ignoring: i != _index,
-              child: AnimatedOpacity(
-                opacity: i == _index ? 1 : 0,
-                duration: const Duration(milliseconds: 150),
-                curve: Curves.easeOut,
-                child: TickerMode(
-                  enabled: i == _index,
-                  child: _tabs[i],
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 720),
+          child: Stack(
+            children: [
+              for (var i = 0; i < _tabs.length; i++)
+                IgnorePointer(
+                  ignoring: i != _index,
+                  child: AnimatedOpacity(
+                    opacity: i == _index ? 1 : 0,
+                    duration: const Duration(milliseconds: 150),
+                    curve: Curves.easeOut,
+                    child: TickerMode(
+                      enabled: i == _index,
+                      child: _tabs[i],
+                    ),
+                  ),
                 ),
-              ),
-            ),
-        ],
+            ],
+          ),
+        ),
       ),
       bottomNavigationBar: _BottomNav(
         index: _index,

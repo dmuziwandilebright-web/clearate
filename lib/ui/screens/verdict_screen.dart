@@ -156,6 +156,16 @@ class _VerdictScreenState extends State<VerdictScreen> {
         'Fair price $fair, shop price $shop.';
   }
 
+  void _reportResult() {
+    final theme = Theme.of(context);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        backgroundColor: theme.colorScheme.surfaceContainerLowest,
+        content: const Text('Report submitted. Please contact support with a screenshot if needed.'),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -240,6 +250,24 @@ class _VerdictScreenState extends State<VerdictScreen> {
             style: theme.textTheme.bodyMd.copyWith(color: theme.colorScheme.undervaluedAmber),
           ),
         ],
+        if (_result != null) ...[
+          const SizedBox(height: 14),
+          Text(
+            'ANALYSIS RESULT',
+            style: theme.textTheme.labelMd.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              letterSpacing: 1.4,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            'Currency Evaluation',
+            style: theme.textTheme.headlineLg.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
         const SizedBox(height: 18),
         RepaintBoundary(
           key: _shareKey,
@@ -301,45 +329,28 @@ class _VerdictScreenState extends State<VerdictScreen> {
             child: FilledButton.icon(
               onPressed: _shareImage,
               style: FilledButton.styleFrom(
-                backgroundColor: switch (_result!.kind) {
-                  VerdictKind.fair => const Color(0xFF1B5E20),
-                  VerdictKind.overcharged => const Color(0xFF1B5E20),
-                  VerdictKind.undervalued => const Color(0xFFFFF4D6),
-                },
-                foregroundColor: switch (_result!.kind) {
-                  VerdictKind.undervalued => Colors.black,
-                  _ => Colors.white,
-                },
+                backgroundColor: Colors.black,
+                foregroundColor: Colors.white,
               ),
               icon: const Icon(Icons.share),
               label: const Text('Share Price Check'),
             ),
           ),
-        ],
-        const SizedBox(height: 18),
-        Container(
-          padding: const EdgeInsets.all(14),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.secondaryContainer,
-            borderRadius: BorderRadius.circular(14),
-          ),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.info_outline, color: theme.colorScheme.onSecondaryContainer),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Price checks are based on the latest central bank mid-rates and a standard 8% retail margin.',
-                  style: theme.textTheme.labelMd.copyWith(
-                    color: theme.colorScheme.onSecondaryContainer,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: 48,
+            child: OutlinedButton.icon(
+              onPressed: _reportResult,
+              style: OutlinedButton.styleFrom(
+                foregroundColor: theme.colorScheme.onSurface,
+                side: BorderSide(color: theme.colorScheme.outlineVariant),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
               ),
-            ],
+              icon: const Icon(Icons.report_gmailerrorred_outlined),
+              label: const Text('Report Incorrect Value'),
+            ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -546,17 +557,17 @@ class _VerdictCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final accentColor = switch (result.kind) {
-      VerdictKind.fair => const Color(0xFF8ED8A5),
-      VerdictKind.overcharged => const Color(0xFFCC5B5B),
+      VerdictKind.fair => const Color(0xFF128A43),
+      VerdictKind.overcharged => const Color(0xFF9C1F1F),
       VerdictKind.undervalued => const Color(0xFFD89A0F),
     };
     final headerColor = switch (result.kind) {
-      VerdictKind.fair => const Color(0xFFEAF7EE),
+      VerdictKind.fair => const Color(0xFFD7F6DD),
       VerdictKind.overcharged => const Color(0xFFB71C1C),
-      VerdictKind.undervalued => const Color(0xFFFFF4D6),
+      VerdictKind.undervalued => const Color(0xFFFFB400),
     };
     final textColor = switch (result.kind) {
-      VerdictKind.fair => const Color(0xFF1B5E20),
+      VerdictKind.fair => const Color(0xFF147A39),
       VerdictKind.overcharged => Colors.white,
       VerdictKind.undervalued => Colors.black,
     };
@@ -576,9 +587,38 @@ class _VerdictCard extends StatelessWidget {
       VerdictKind.undervalued => 'This price is very low. You are being undercharged by ${formatCurrencyAmount(to, result.deltaAmount)}.',
     };
     final deltaLine = switch (result.kind) {
-      VerdictKind.fair => 'You are within ${formatCurrencyAmount(to, result.deltaAmount)} of the fair price.',
+      VerdictKind.fair => 'You are within by ${formatCurrencyAmount(to, result.deltaAmount)} of the fair price.',
       VerdictKind.overcharged => 'Overcharged by ${formatCurrencyAmount(to, result.deltaAmount)}.',
       VerdictKind.undervalued => 'Undercharged by ${formatCurrencyAmount(to, result.deltaAmount)}.',
+    };
+    final glowShadow = switch (result.kind) {
+      VerdictKind.fair => const [
+          BoxShadow(
+            color: Color(0x5534C759),
+            blurRadius: 24,
+            offset: Offset(0, 10),
+          ),
+          BoxShadow(
+            color: Color(0x2234C759),
+            blurRadius: 44,
+            offset: Offset(0, 0),
+            spreadRadius: 4,
+          ),
+        ],
+      VerdictKind.overcharged => const [
+          BoxShadow(
+            color: Color(0x16000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
+      VerdictKind.undervalued => const [
+          BoxShadow(
+            color: Color(0x16000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
     };
 
     return Container(
@@ -586,52 +626,70 @@ class _VerdictCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
         border: Border.all(color: accentColor),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x14000000),
-            blurRadius: 12,
-            offset: Offset(0, 4),
-          ),
-        ],
+        boxShadow: glowShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            padding: const EdgeInsets.fromLTRB(16, 12, 12, 16),
+            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
             decoration: BoxDecoration(
               color: headerColor,
               borderRadius: const BorderRadius.only(
                 topLeft: Radius.circular(17),
                 topRight: Radius.circular(17),
               ),
+              boxShadow: result.kind == VerdictKind.fair
+                  ? const [
+                      BoxShadow(
+                        color: Color(0x2234C759),
+                        blurRadius: 16,
+                        offset: Offset(0, 6),
+                      ),
+                    ]
+                  : null,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 56,
-                  height: 56,
-                  decoration: BoxDecoration(
-                    color: result.kind == VerdictKind.overcharged
-                        ? Colors.white.withOpacity(0.14)
-                        : Colors.white.withOpacity(0.7),
-                    shape: BoxShape.circle,
-                  ),
-                  child: Icon(icon, size: 32, color: textColor),
-                ),
-                const SizedBox(width: 14),
                 Expanded(
                   child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      Container(
+                        width: 76,
+                        height: 76,
+                        decoration: BoxDecoration(
+                          color: result.kind == VerdictKind.overcharged
+                              ? Colors.white.withOpacity(0.12)
+                              : Colors.white.withOpacity(0.42),
+                          shape: BoxShape.circle,
+                          boxShadow: result.kind == VerdictKind.fair
+                              ? const [
+                                  BoxShadow(
+                                    color: Color(0x4434C759),
+                                    blurRadius: 18,
+                                    offset: Offset(0, 6),
+                                  ),
+                                ]
+                              : null,
+                        ),
+                        child: Center(
+                          child: Icon(
+                            result.kind == VerdictKind.fair ? Icons.check : icon,
+                            size: 34,
+                            color: result.kind == VerdictKind.fair ? const Color(0xFF128A43) : textColor,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
                       Text(
                         verdictWord,
                         style: theme.textTheme.displayLg.copyWith(
                           color: textColor,
                           fontSize: 34,
-                          fontWeight: FontWeight.w800,
+                          fontWeight: FontWeight.w900,
                         ),
+                        textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -644,26 +702,20 @@ class _VerdictCard extends StatelessWidget {
                           color: textColor,
                           fontWeight: FontWeight.w700,
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ],
                   ),
-                ),
-                IconButton(
-                  onPressed: onDismiss,
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.white.withOpacity(result.kind == VerdictKind.overcharged ? 0.2 : 0.28),
-                    foregroundColor: textColor,
-                  ),
-                  icon: const Icon(Icons.close),
-                  tooltip: 'Clear result',
                 ),
               ],
             ),
           ),
           Container(
-            color: result.kind == VerdictKind.fair
-                ? const Color(0xFFF7FCF8)
-                : Colors.white,
+            color: switch (result.kind) {
+              VerdictKind.fair => const Color(0xFFF4FDF6),
+              VerdictKind.overcharged => const Color(0xFFFDF6F6),
+              VerdictKind.undervalued => const Color(0xFFFFF4D6),
+            },
             padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
             child: Column(
               children: [
@@ -676,15 +728,15 @@ class _VerdictCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 12),
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                    decoration: BoxDecoration(
                     color: result.kind == VerdictKind.fair
-                        ? const Color(0xFFEAF7EE)
+                        ? const Color(0xFFBDECCB)
                         : result.kind == VerdictKind.overcharged
                             ? const Color(0xFFFFE7E4)
-                            : const Color(0xFFFFF4D6),
+                            : const Color(0xFFFFC300),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(
@@ -701,7 +753,12 @@ class _VerdictCard extends StatelessWidget {
                   result: result,
                   from: from,
                   to: to,
-                  textColor: result.kind == VerdictKind.fair ? const Color(0xFF1B5E20) : Colors.black,
+                  textColor: Colors.black,
+                ),
+                const SizedBox(height: 18),
+                SizedBox(
+                  width: double.infinity,
+                  child: _ResultStrip(kind: result.kind),
                 ),
               ],
             ),
@@ -729,7 +786,7 @@ class _ComparisonPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final fair = result.expectedPay;
     final background = switch (result.kind) {
-      VerdictKind.fair => const Color(0xFFEAF7EE),
+      VerdictKind.fair => const Color(0xFFEAF9EC),
       VerdictKind.overcharged => const Color(0xFFF8F9FA),
       VerdictKind.undervalued => const Color(0xFFFFF4D6),
     };
@@ -754,7 +811,7 @@ class _ComparisonPanel extends StatelessWidget {
           Divider(color: Colors.black.withOpacity(0.1)),
           const SizedBox(height: 14),
           _ComparisonRow(
-            label: 'Shop Price',
+            label: 'Shop price',
             value: formatCurrencyAmount(to, result.askedToPay),
             valueColor: textColor,
             labelTrailing: result.kind == VerdictKind.fair ? Icons.check_circle_outline : Icons.trending_up,
@@ -786,15 +843,6 @@ class _ComparisonRow extends StatelessWidget {
 
     return Row(
       children: [
-        Container(
-          width: 4,
-          height: 48,
-          decoration: BoxDecoration(
-            color: valueColor,
-            borderRadius: BorderRadius.circular(999),
-          ),
-        ),
-        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -827,6 +875,46 @@ class _ComparisonRow extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _ResultStrip extends StatelessWidget {
+  const _ResultStrip({required this.kind});
+
+  final VerdictKind kind;
+
+  @override
+  Widget build(BuildContext context) {
+    final bg = switch (kind) {
+      VerdictKind.fair => const Color(0xFFEAF9EC),
+      VerdictKind.overcharged => const Color(0xFFE9ECEF),
+      VerdictKind.undervalued => const Color(0xFFF4F5F7),
+    };
+    final fill = switch (kind) {
+      VerdictKind.fair => const Color(0xFF23A34C),
+      VerdictKind.overcharged => const Color(0xFFD6D8DC),
+      VerdictKind.undervalued => const Color(0xFFD6D8DC),
+    };
+
+    return Container(
+      height: 46,
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFD0D5DD)),
+      ),
+      padding: const EdgeInsets.all(6),
+      child: Align(
+        alignment: Alignment.centerLeft,
+        child: Container(
+          width: kind == VerdictKind.overcharged ? 120 : kind == VerdictKind.undervalued ? 136 : 146,
+          decoration: BoxDecoration(
+            color: fill,
+            borderRadius: BorderRadius.circular(999),
+          ),
+        ),
+      ),
     );
   }
 }
