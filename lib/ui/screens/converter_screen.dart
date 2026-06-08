@@ -60,8 +60,6 @@ class _ConverterScreenState extends State<ConverterScreen> {
     final amount = double.tryParse(_input) ?? 0;
     final rate = snapshot == null ? null : snapshot.rate(_from, _to);
     final converted = rate == null || rate <= 0 ? null : amount * rate;
-    final sourceLabel = _from.uiLabel;
-    final targetLabel = _to.uiLabel;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
@@ -137,36 +135,6 @@ class _ConverterScreenState extends State<ConverterScreen> {
           ),
         ),
         const SizedBox(height: 18),
-        Center(
-          child: Column(
-            children: [
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Icon(Icons.info_outline, size: 16, color: theme.colorScheme.onSurfaceVariant),
-                  const SizedBox(width: 6),
-                  Text(
-                    "Based on today's official rates",
-                    style: theme.textTheme.labelMd.copyWith(
-                      color: theme.colorScheme.onSurfaceVariant,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                snapshot == null
-                    ? 'Connect to get today\'s rate.'
-                    : '1 $sourceLabel = ${formatRate(rate!)} $targetLabel',
-                style: theme.textTheme.bodyMd.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant.withOpacity(0.75),
-                ),
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
       ],
     );
   }

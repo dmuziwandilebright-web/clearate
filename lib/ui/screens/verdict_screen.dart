@@ -30,6 +30,7 @@ class _VerdictScreenState extends State<VerdictScreen> {
   bool _isChecking = false;
   bool _knownError = false;
   bool _quotedError = false;
+  bool _showVerdict = false;
 
   @override
   void dispose() {
@@ -96,7 +97,16 @@ class _VerdictScreenState extends State<VerdictScreen> {
     if (!mounted) return;
     setState(() {
       _result = result;
+      _showVerdict = true;
       _isChecking = false;
+    });
+  }
+
+  void _clearVerdict() {
+    setState(() {
+      _result = null;
+      _showVerdict = false;
+      _shareFailures = 0;
     });
   }
 
@@ -234,24 +244,53 @@ class _VerdictScreenState extends State<VerdictScreen> {
         RepaintBoundary(
           key: _shareKey,
           child: AnimatedSwitcher(
-            duration: const Duration(milliseconds: 250),
+            duration: const Duration(milliseconds: 420),
             transitionBuilder: (child, animation) {
+              final curved = CurvedAnimation(parent: animation, curve: Curves.easeOutCubic);
               final slide = Tween<Offset>(
-                begin: const Offset(0, 0.08),
+                begin: const Offset(0, 0.12),
                 end: Offset.zero,
-              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutCubic));
+              ).animate(curved);
+              final scale = Tween<double>(
+                begin: 0.96,
+                end: 1.0,
+              ).animate(CurvedAnimation(parent: animation, curve: Curves.easeOutBack));
               return FadeTransition(
                 opacity: animation,
-                child: SlideTransition(position: slide, child: child),
+                child: SlideTransition(
+                  position: slide,
+                  child: ScaleTransition(scale: scale, child: child),
+                ),
               );
             },
-            child: _result == null
+            child: !_showVerdict || _result == null
                 ? const _EmptyVerdictArea(key: ValueKey('empty'))
-                : _VerdictCard(
+                : Dismissible(
                     key: ValueKey('${_result!.kind}-${_result!.askedToPay}-${_result!.itemPrice}'),
-                    result: _result!,
-                    from: _from,
-                    to: _to,
+                    direction: DismissDirection.up,
+                    dismissThresholds: const {DismissDirection.up: 0.22},
+                    onDismissed: (_) => _clearVerdict(),
+                    background: Container(
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerLowest,
+                        borderRadius: BorderRadius.circular(18),
+                        border: Border.all(color: theme.colorScheme.outlineVariant),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Release to clear result',
+                        style: theme.textTheme.labelMd.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    child: _VerdictCard(
+                      result: _result!,
+                      from: _from,
+                      to: _to,
+                      onDismiss: _clearVerdict,
+                    ),
                   ),
           ),
         ),
@@ -262,12 +301,15 @@ class _VerdictScreenState extends State<VerdictScreen> {
             child: FilledButton.icon(
               onPressed: _shareImage,
               style: FilledButton.styleFrom(
-                backgroundColor: _result!.kind == VerdictKind.fair
-                    ? const Color(0xFF1B5E20)
-                    : _result!.kind == VerdictKind.overcharged
-                        ? const Color(0xFFB71C1C)
-                        : const Color(0xFFF57F17),
-                foregroundColor: Colors.white,
+                backgroundColor: switch (_result!.kind) {
+                  VerdictKind.fair => const Color(0xFF1B5E20),
+                  VerdictKind.overcharged => const Color(0xFF1B5E20),
+                  VerdictKind.undervalued => const Color(0xFFFFF4D6),
+                },
+                foregroundColor: switch (_result!.kind) {
+                  VerdictKind.undervalued => Colors.black,
+                  _ => Colors.white,
+                },
               ),
               icon: const Icon(Icons.share),
               label: const Text('Share Price Check'),
@@ -489,25 +531,35 @@ class _EmptyVerdictArea extends StatelessWidget {
 
 class _VerdictCard extends StatelessWidget {
   const _VerdictCard({
-    super.key,
     required this.result,
     required this.from,
     required this.to,
+    required this.onDismiss,
   });
 
   final VerdictResult result;
   final Currency from;
   final Currency to;
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final color = switch (result.kind) {
-      VerdictKind.fair => const Color(0xFFE0F5E6),
-      VerdictKind.overcharged => const Color(0xFFB71C1C),
-      VerdictKind.undervalued => const Color(0xFFF57F17),
+    final accentColor = switch (result.kind) {
+      VerdictKind.fair => const Color(0xFF8ED8A5),
+      VerdictKind.overcharged => const Color(0xFFCC5B5B),
+      VerdictKind.undervalued => const Color(0xFFD89A0F),
     };
-    final textColor = result.kind == VerdictKind.fair ? const Color(0xFF1B5E20) : Colors.white;
+    final headerColor = switch (result.kind) {
+      VerdictKind.fair => const Color(0xFFEAF7EE),
+      VerdictKind.overcharged => const Color(0xFFB71C1C),
+      VerdictKind.undervalued => const Color(0xFFFFF4D6),
+    };
+    final textColor = switch (result.kind) {
+      VerdictKind.fair => const Color(0xFF1B5E20),
+      VerdictKind.overcharged => Colors.white,
+      VerdictKind.undervalued => Colors.black,
+    };
     final icon = switch (result.kind) {
       VerdictKind.fair => Icons.check_circle,
       VerdictKind.overcharged => Icons.close,
@@ -531,66 +583,129 @@ class _VerdictCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: color,
+        color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: result.kind == VerdictKind.fair
-              ? const Color(0xFF8ED8A5)
-              : result.kind == VerdictKind.overcharged
-                  ? const Color(0xFFCC5B5B)
-                  : const Color(0xFFD89A0F),
-        ),
+        border: Border.all(color: accentColor),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x14000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
-      padding: const EdgeInsets.all(20),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Container(
-            width: 90,
-            height: 90,
+            padding: const EdgeInsets.fromLTRB(16, 12, 12, 16),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(result.kind == VerdictKind.fair ? 0.3 : 0.18),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 48, color: textColor),
-          ),
-          const SizedBox(height: 18),
-          Text(
-            verdictWord,
-            style: theme.textTheme.displayLg.copyWith(
-              color: textColor,
-              fontSize: 34,
-              fontWeight: FontWeight.w700,
-            ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 10),
-          Text(
-            description,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLg.copyWith(
-              color: textColor,
-              fontWeight: FontWeight.w500,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(result.kind == VerdictKind.fair ? 0.28 : 0.16),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Text(
-              deltaLine,
-              textAlign: TextAlign.center,
-              style: theme.textTheme.labelMd.copyWith(
-                color: textColor,
-                fontWeight: FontWeight.w700,
+              color: headerColor,
+              borderRadius: const BorderRadius.only(
+                topLeft: Radius.circular(17),
+                topRight: Radius.circular(17),
               ),
             ),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 56,
+                  height: 56,
+                  decoration: BoxDecoration(
+                    color: result.kind == VerdictKind.overcharged
+                        ? Colors.white.withOpacity(0.14)
+                        : Colors.white.withOpacity(0.7),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(icon, size: 32, color: textColor),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        verdictWord,
+                        style: theme.textTheme.displayLg.copyWith(
+                          color: textColor,
+                          fontSize: 34,
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        result.kind == VerdictKind.fair
+                            ? 'Fair price'
+                            : result.kind == VerdictKind.overcharged
+                                ? 'Overcharge detected'
+                                : 'Undervalued offer',
+                        style: theme.textTheme.labelMd.copyWith(
+                          color: textColor,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  onPressed: onDismiss,
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.white.withOpacity(result.kind == VerdictKind.overcharged ? 0.2 : 0.28),
+                    foregroundColor: textColor,
+                  ),
+                  icon: const Icon(Icons.close),
+                  tooltip: 'Clear result',
+                ),
+              ],
+            ),
           ),
-          const SizedBox(height: 18),
-          _ComparisonPanel(result: result, from: from, to: to, textColor: textColor),
+          Container(
+            color: result.kind == VerdictKind.fair
+                ? const Color(0xFFF7FCF8)
+                : Colors.white,
+            padding: const EdgeInsets.fromLTRB(20, 18, 20, 20),
+            child: Column(
+              children: [
+                Text(
+                  description,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyLg.copyWith(
+                    color: Colors.black,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: result.kind == VerdictKind.fair
+                        ? const Color(0xFFEAF7EE)
+                        : result.kind == VerdictKind.overcharged
+                            ? const Color(0xFFFFE7E4)
+                            : const Color(0xFFFFF4D6),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: Text(
+                    deltaLine,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.labelMd.copyWith(
+                      color: Colors.black,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                _ComparisonPanel(
+                  result: result,
+                  from: from,
+                  to: to,
+                  textColor: result.kind == VerdictKind.fair ? const Color(0xFF1B5E20) : Colors.black,
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -613,24 +728,30 @@ class _ComparisonPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final fair = result.expectedPay;
+    final background = switch (result.kind) {
+      VerdictKind.fair => const Color(0xFFEAF7EE),
+      VerdictKind.overcharged => const Color(0xFFF8F9FA),
+      VerdictKind.undervalued => const Color(0xFFFFF4D6),
+    };
 
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.22),
+        color: background,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.white.withOpacity(0.2)),
+        border: Border.all(color: Colors.black.withOpacity(0.08)),
       ),
       child: Column(
         children: [
           _ComparisonRow(
-            label: 'Fair Price',
+            label: 'Fair price',
             value: formatCurrencyAmount(to, fair),
             valueColor: textColor,
+            boldLabel: true,
           ),
           const SizedBox(height: 14),
-          Divider(color: Colors.white.withOpacity(0.35)),
+          Divider(color: Colors.black.withOpacity(0.1)),
           const SizedBox(height: 14),
           _ComparisonRow(
             label: 'Shop Price',
@@ -650,12 +771,14 @@ class _ComparisonRow extends StatelessWidget {
     required this.value,
     required this.valueColor,
     this.labelTrailing,
+    this.boldLabel = false,
   });
 
   final String label;
   final String value;
   final Color valueColor;
   final IconData? labelTrailing;
+  final bool boldLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -683,6 +806,7 @@ class _ComparisonRow extends StatelessWidget {
                     style: theme.textTheme.labelMd.copyWith(
                       color: valueColor,
                       letterSpacing: 1.0,
+                      fontWeight: boldLabel ? FontWeight.w800 : FontWeight.w600,
                     ),
                   ),
                   if (labelTrailing != null) ...[

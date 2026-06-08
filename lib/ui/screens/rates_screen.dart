@@ -1,12 +1,16 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 
 import '../../app/app_scope.dart';
 import '../../domain/currency.dart';
 import '../../domain/rate_snapshot.dart';
+import '../../state/rates_controller.dart';
+import '../../services/share_service.dart';
 import '../formatters.dart';
 import '../theme.dart';
 
@@ -122,10 +126,10 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
               bottom: 16,
               child: SafeArea(
                 top: false,
-                child: _RatesActionBar(
+              child: _RatesActionBar(
                   showQrEnabled: snapshot != null && !controller.state.isRefreshing,
                   scanEnabled: !controller.state.isRefreshing,
-                  onShowQr: snapshot == null ? null : () => _showQrDialog(context, snapshot),
+                  onShowQr: snapshot == null ? null : () => _showQrDialog(context, controller),
                   onScan: () => _showScannerDialog(context),
                 ),
               ),
@@ -136,8 +140,11 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
     );
   }
 
-  Future<void> _showQrDialog(BuildContext context, RateSnapshot snapshot) async {
-    final text = jsonEncode(snapshot.toJson());
+  Future<void> _showQrDialog(BuildContext context, RatesController controller) async {
+    final shareService = ShareService();
+    final qrKey = GlobalKey();
+    RateSnapshot? displayedSnapshot = controller.state.snapshot;
+    var busy = false;
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -145,80 +152,188 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
       barrierColor: Colors.black.withOpacity(0.6),
       transitionDuration: const Duration(milliseconds: 250),
       pageBuilder: (context, animation, secondaryAnimation) {
+        final theme = Theme.of(context);
         return SafeArea(
           child: Center(
             child: Padding(
               padding: const EdgeInsets.all(20),
               child: Material(
                 color: Colors.transparent,
-                child: Container(
-                  width: 360,
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surfaceContainerLowest,
-                    borderRadius: BorderRadius.circular(18),
-                  ),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Row(
-                        children: [
-                          Text(
-                            'Share Rates',
-                            style: Theme.of(context).textTheme.headlineMd.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                ),
-                          ),
-                          const Spacer(),
-                          IconButton(
-                            onPressed: () => Navigator.of(context).pop(),
-                            icon: const Icon(Icons.close),
+                child: StatefulBuilder(
+                  builder: (context, setState) {
+                    final snapshot = displayedSnapshot;
+                    final payload = snapshot == null ? '{}' : jsonEncode(snapshot.toJson());
+                    final card = Container(
+                      width: 368,
+                      padding: const EdgeInsets.all(18),
+                      decoration: BoxDecoration(
+                        color: theme.colorScheme.surfaceContainerLowest,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(color: theme.colorScheme.outlineVariant),
+                        boxShadow: const [
+                          BoxShadow(
+                            color: Color(0x18000000),
+                            blurRadius: 20,
+                            offset: Offset(0, 10),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
-                      AspectRatio(
-                        aspectRatio: 1,
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Row(
+                            children: [
+                              Text(
+                                'Share Rates',
+                                style: theme.textTheme.headlineMd.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                ),
+                              ),
+                              const Spacer(),
+                              IconButton(
+                                onPressed: busy ? null : () => Navigator.of(context).pop(),
+                                icon: const Icon(Icons.close),
+                              ),
+                            ],
                           ),
-                          child: QrImageView(
-                            data: text,
-                            version: QrVersions.auto,
-                            padding: const EdgeInsets.all(10),
-                            gapless: false,
-                            backgroundColor: Colors.white,
-                            errorStateBuilder: (context, error) => Center(
-                              child: Text(
-                                'Could not build QR',
-                                style: Theme.of(context).textTheme.bodyMd,
+                          const SizedBox(height: 8),
+                          RepaintBoundary(
+                            key: qrKey,
+                            child: AspectRatio(
+                              aspectRatio: 1,
+                              child: Container(
+                                padding: const EdgeInsets.all(14),
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(20),
+                                  border: Border.all(color: theme.colorScheme.outlineVariant),
+                                ),
+                                child: Column(
+                                  children: [
+                                    Expanded(
+                                      child: QrImageView(
+                                        data: payload,
+                                        version: QrVersions.auto,
+                                        padding: const EdgeInsets.all(10),
+                                        gapless: false,
+                                        backgroundColor: Colors.white,
+                                        errorStateBuilder: (context, error) => Center(
+                                          child: Text(
+                                            'Could not build QR',
+                                            style: theme.textTheme.bodyMd,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                    Text(
+                                      snapshot == null
+                                          ? 'Reference rates'
+                                          : snapshot.serverTime == null
+                                              ? 'Showing reference rates'
+                                              : 'Live rates • ${formatHonestUpdated(snapshot.fetchedAt)}',
+                                      style: theme.textTheme.labelMd.copyWith(
+                                        color: theme.colorScheme.onSurfaceVariant,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                      textAlign: TextAlign.center,
+                                    ),
+                                  ],
+                                ),
                               ),
                             ),
                           ),
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      Text(
-                        'Let others scan this code to get current exchange rates instantly.',
-                        style: Theme.of(context).textTheme.bodyMd.copyWith(
-                              color: Theme.of(context).colorScheme.onSurfaceVariant,
+                          const SizedBox(height: 14),
+                          Text(
+                            'Let others scan this code to get current exchange rates instantly.',
+                            style: theme.textTheme.bodyMd.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                            textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: busy
+                                      ? null
+                                      : () async {
+                                          setState(() => busy = true);
+                                          try {
+                                            await controller.forceRefresh();
+                                            displayedSnapshot = controller.state.snapshot ?? displayedSnapshot;
+                                            setState(() {});
+                                          } finally {
+                                            if (context.mounted) {
+                                              setState(() => busy = false);
+                                            }
+                                          }
+                                        },
+                                  icon: const Icon(Icons.refresh),
+                                  label: const Text('Refresh'),
+                                ),
+                              ),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: busy
+                                      ? null
+                                      : () async {
+                                          final boundary = qrKey.currentContext?.findRenderObject();
+                                          if (boundary is! RenderRepaintBoundary) return;
+                                          setState(() => busy = true);
+                                          try {
+                                            await shareService.sharePngFromBoundary(
+                                              boundary: boundary,
+                                              fileNameBase: 'clearate_rates',
+                                              text: 'Clearate rates snapshot',
+                                            );
+                                          } finally {
+                                            if (context.mounted) {
+                                              setState(() => busy = false);
+                                            }
+                                          }
+                                        },
+                                  icon: const Icon(Icons.save_alt),
+                                  label: const Text('Save Image'),
+                                ),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          SizedBox(
+                            width: double.infinity,
+                            child: FilledButton.icon(
+                              onPressed: busy
+                                  ? null
+                                  : () async {
+                                      final link = 'clearate://share-rates?data=${Uri.encodeComponent(payload)}';
+                                      await shareService.shareText(link);
+                                    },
+                              icon: const Icon(Icons.link),
+                              label: const Text('Share Link'),
                             ),
-                        textAlign: TextAlign.center,
+                          ),
+                          const SizedBox(height: 8),
+                          SizedBox(
+                            width: double.infinity,
+                            child: TextButton(
+                              onPressed: busy ? null : () => Navigator.of(context).pop(),
+                              child: const Text('Done'),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
-                      SizedBox(
-                        width: double.infinity,
-                        child: FilledButton(
-                          onPressed: () => Navigator.of(context).pop(),
-                          child: const Text('Done'),
-                        ),
+                    );
+
+                    return ConstrainedBox(
+                      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.86),
+                      child: SingleChildScrollView(
+                        child: card,
                       ),
-                    ],
-                  ),
+                    );
+                  },
                 ),
               ),
             ),
@@ -238,12 +353,12 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
   }
 
   Future<void> _showScannerDialog(BuildContext context) async {
-    final controller = MobileScannerController(
-      detectionSpeed: DetectionSpeed.noDuplicates,
-      facing: CameraFacing.back,
-    );
-    final currentSnapshot = AppScope.of(context).ratesController.state.snapshot;
-    var handled = false;
+    if (!(Platform.isAndroid || Platform.isIOS)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Camera scanning is only available on Android and iPhone.')),
+      );
+      return;
+    }
     await showGeneralDialog<void>(
       context: context,
       barrierDismissible: true,
@@ -251,139 +366,8 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
       barrierColor: Colors.black,
       transitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (context, animation, secondaryAnimation) {
-        final theme = Theme.of(context);
-        return Scaffold(
-          backgroundColor: Colors.black,
-          body: SafeArea(
-            child: StatefulBuilder(
-              builder: (context, _) {
-                return Column(
-                  children: [
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-                      child: Row(
-                        children: [
-                          TextButton.icon(
-                            onPressed: () async {
-                              await controller.stop();
-                              Navigator.of(context).pop();
-                            },
-                            icon: const Icon(Icons.arrow_back, color: Colors.white),
-                            label: const Text('Cancel', style: TextStyle(color: Colors.white)),
-                          ),
-                          const Spacer(),
-                          Text(
-                            'Scanning...',
-                            style: theme.textTheme.labelMd.copyWith(
-                              color: Colors.white,
-                              letterSpacing: 1.2,
-                            ),
-                          ),
-                          const Spacer(),
-                          const SizedBox(width: 92),
-                        ],
-                      ),
-                    ),
-                    Expanded(
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                            child: MobileScanner(
-                              controller: controller,
-                              onDetect: (capture) async {
-                                if (handled) return;
-                                final barcode = capture.barcodes.isEmpty ? null : capture.barcodes.first;
-                                final raw = barcode?.rawValue;
-                                if (raw == null || raw.isEmpty) {
-                                  return;
-                                }
-                                try {
-                                  final imported = RateSnapshot.fromJson(
-                                    (jsonDecode(raw) as Map).cast<String, Object?>(),
-                                  ).copyWithFetchedAt(DateTime.now());
-                                  final current = currentSnapshot;
-                                  if (current != null && current.serverTime != null) {
-                                    final importedIsOlder = imported.serverTime == null ||
-                                        imported.serverTime!.isBefore(current.serverTime!);
-                                    if (importedIsOlder) {
-                                      handled = true;
-                                      await controller.stop();
-                                      if (!context.mounted) return;
-                                      Navigator.of(context).pop();
-                                      ScaffoldMessenger.of(context).showSnackBar(
-                                        const SnackBar(
-                                          content: Text('Your rates are already up to date. Show your QR code to the other person instead.'),
-                                        ),
-                                      );
-                                      return;
-                                    }
-                                  }
-
-                                  handled = true;
-                                  await AppScope.of(context).ratesController.importSnapshot(imported);
-                                  if (!context.mounted) return;
-                                  await controller.stop();
-                                  Navigator.of(context).pop();
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text('Rates updated from nearby device.')),
-                                  );
-                                } catch (_) {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(content: Text("This doesn't look like a Clearate rate code. Try again.")),
-                                  );
-                                }
-                              },
-                            ),
-                          ),
-                          Container(color: Colors.black.withOpacity(0.18)),
-                          Center(
-                            child: Container(
-                              width: 264,
-                              height: 264,
-                              decoration: BoxDecoration(
-                                border: Border.all(color: Colors.white24, width: 2),
-                                borderRadius: BorderRadius.circular(20),
-                              ),
-                              child: Stack(
-                                children: const [
-                                  _Corner(top: true, left: true),
-                                  _Corner(top: true, left: false),
-                                  _Corner(top: false, left: true),
-                                  _Corner(top: false, left: false),
-                                ],
-                              ),
-                            ),
-                          ),
-                          Positioned(
-                            left: 24,
-                            right: 24,
-                            bottom: 140,
-                            child: Column(
-                              children: [
-                                Container(
-                                  height: 4,
-                                  decoration: BoxDecoration(
-                                    color: theme.colorScheme.secondaryFixed,
-                                    borderRadius: BorderRadius.circular(999),
-                                  ),
-                                ),
-                                const SizedBox(height: 16),
-                                Text(
-                                  'Point your camera at another Clearate user\'s QR code.',
-                                  style: theme.textTheme.bodyMd.copyWith(color: Colors.white),
-                                  textAlign: TextAlign.center,
-                                ),
-                              ],
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              },
-            ),
-          ),
+        return _ScannerDialog(
+          currentSnapshot: AppScope.of(context).ratesController.state.snapshot,
         );
       },
       transitionBuilder: (context, animation, secondaryAnimation, child) {
@@ -396,8 +380,235 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
         );
       },
     );
-    await controller.stop();
-    controller.dispose();
+  }
+}
+
+class _ScannerDialog extends StatefulWidget {
+  const _ScannerDialog({
+    required this.currentSnapshot,
+  });
+
+  final RateSnapshot? currentSnapshot;
+
+  @override
+  State<_ScannerDialog> createState() => _ScannerDialogState();
+}
+
+class _ScannerDialogState extends State<_ScannerDialog> with SingleTickerProviderStateMixin {
+  late final MobileScannerController _controller;
+  late final AnimationController _lineController;
+  bool _handled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = MobileScannerController(
+      detectionSpeed: DetectionSpeed.noDuplicates,
+      facing: CameraFacing.back,
+    );
+    _lineController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1800),
+    )..repeat();
+  }
+
+  @override
+  void dispose() {
+    _lineController.dispose();
+    _controller.dispose();
+    super.dispose();
+  }
+
+  Future<void> _close() async {
+    await _controller.stop();
+    if (!mounted) return;
+    Navigator.of(context).pop();
+  }
+
+  Future<void> _handleDetect(BarcodeCapture capture) async {
+    if (_handled) return;
+    final barcode = capture.barcodes.isEmpty ? null : capture.barcodes.first;
+    final raw = barcode?.rawValue;
+    if (raw == null || raw.isEmpty) return;
+
+    try {
+      final imported = RateSnapshot.fromJson(
+        (jsonDecode(raw) as Map).cast<String, Object?>(),
+      ).copyWithFetchedAt(DateTime.now());
+      final current = widget.currentSnapshot;
+      if (current != null && current.serverTime != null) {
+        final importedIsOlder =
+            imported.serverTime == null || imported.serverTime!.isBefore(current.serverTime!);
+        if (importedIsOlder) {
+          _handled = true;
+          await _controller.stop();
+          if (!mounted) return;
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Your rates are already up to date. Show your QR code to the other person instead.'),
+            ),
+          );
+          return;
+        }
+      }
+
+      _handled = true;
+      await AppScope.of(context).ratesController.importSnapshot(imported);
+      if (!mounted) return;
+      await _controller.stop();
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Rates updated from nearby device.')),
+      );
+    } catch (_) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("This doesn't look like a Clearate rate code. Try again.")),
+      );
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
+              child: Row(
+                children: [
+                  TextButton.icon(
+                    onPressed: _close,
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    label: const Text('Cancel', style: TextStyle(color: Colors.white)),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Scanning...',
+                    style: theme.textTheme.labelMd.copyWith(
+                      color: Colors.white,
+                      letterSpacing: 1.2,
+                    ),
+                  ),
+                  const Spacer(),
+                  const SizedBox(width: 92),
+                ],
+              ),
+            ),
+            Expanded(
+              child: Stack(
+                children: [
+                  Positioned.fill(
+                    child: MobileScanner(
+                      controller: _controller,
+                      onDetect: _handleDetect,
+                    ),
+                  ),
+                  Positioned.fill(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topCenter,
+                          end: Alignment.bottomCenter,
+                          colors: [
+                            Colors.black.withOpacity(0.18),
+                            Colors.transparent,
+                            Colors.black.withOpacity(0.28),
+                          ],
+                          stops: const [0.0, 0.45, 1.0],
+                        ),
+                      ),
+                    ),
+                  ),
+                  Center(
+                    child: _ScannerFrame(lineController: _lineController),
+                  ),
+                  Positioned(
+                    left: 24,
+                    right: 24,
+                    bottom: 118,
+                    child: Text(
+                      'Point your camera at another Clearate user\'s QR code.',
+                      style: theme.textTheme.bodyMd.copyWith(color: Colors.white),
+                      textAlign: TextAlign.center,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _ScannerFrame extends StatelessWidget {
+  const _ScannerFrame({
+    required this.lineController,
+  });
+
+  final AnimationController lineController;
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: lineController,
+      builder: (context, _) {
+        final t = Curves.easeInOut.transform(lineController.value);
+        final lineY = 24.0 + (216.0 * t);
+
+        return SizedBox(
+          width: 264,
+          height: 264,
+          child: Stack(
+            children: [
+              Container(
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.white24, width: 2),
+                  borderRadius: BorderRadius.circular(22),
+                ),
+              ),
+              const _Corner(top: true, left: true),
+              const _Corner(top: true, left: false),
+              const _Corner(top: false, left: true),
+              const _Corner(top: false, left: false),
+              Positioned(
+                left: 14,
+                right: 14,
+                top: lineY,
+                child: Container(
+                  height: 3,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(999),
+                    gradient: const LinearGradient(
+                      colors: [
+                        Colors.transparent,
+                        Color(0xFFD3E4FE),
+                        Colors.white,
+                        Color(0xFFD3E4FE),
+                        Colors.transparent,
+                      ],
+                      stops: [0.0, 0.22, 0.5, 0.78, 1.0],
+                    ),
+                    boxShadow: const [
+                      BoxShadow(
+                        color: Color(0x66D3E4FE),
+                        blurRadius: 16,
+                        spreadRadius: 2,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 }
 
@@ -796,15 +1007,31 @@ class _SparklinePainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final trackPaint = Paint()
+      ..color = color.withOpacity(0.14)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..strokeCap = StrokeCap.round
+      ..isAntiAlias = true;
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
+      ..strokeWidth = 3.5
       ..strokeCap = StrokeCap.round;
+    final dotPaint = Paint()
+      ..color = color
+      ..style = PaintingStyle.fill
+      ..isAntiAlias = true;
 
     final path = Path();
     final w = size.width;
     final h = size.height;
+
+    canvas.drawLine(
+      Offset(0, h * 0.48),
+      Offset(w, h * 0.48),
+      trackPaint,
+    );
 
     if (direction > 0) {
       path.moveTo(0, h * 0.72);
@@ -821,6 +1048,7 @@ class _SparklinePainter extends CustomPainter {
     }
 
     canvas.drawPath(path, paint);
+    canvas.drawCircle(Offset(w, direction == 0 ? h * 0.42 : direction > 0 ? h * 0.20 : h * 0.76), 3.6, dotPaint);
   }
 
   @override

@@ -74,17 +74,14 @@ class _MoreScreenState extends State<MoreScreen> {
         Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-              colors: [Color(0xFF10162A), Color(0xFF1A237E)],
-            ),
+            color: theme.colorScheme.surfaceContainerLowest,
             borderRadius: BorderRadius.circular(24),
+            border: Border.all(color: theme.colorScheme.outlineVariant),
             boxShadow: const [
               BoxShadow(
-                color: Color(0x22000000),
-                blurRadius: 16,
-                offset: Offset(0, 8),
+                color: Color(0x10000000),
+                blurRadius: 14,
+                offset: Offset(0, 6),
               ),
             ],
           ),
@@ -96,7 +93,7 @@ class _MoreScreenState extends State<MoreScreen> {
                 'Financial Truth',
                 style: theme.textTheme.headlineLgMobile.copyWith(
                   fontWeight: FontWeight.w700,
-                  color: Colors.white,
+                  color: theme.colorScheme.onSurface,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -104,7 +101,7 @@ class _MoreScreenState extends State<MoreScreen> {
               Text(
                 'Showing reference rates first, then live rates as soon as the device connects.',
                 style: theme.textTheme.bodyMd.copyWith(
-                  color: Colors.white.withOpacity(0.85),
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -227,8 +224,8 @@ class _LogoBadge extends StatelessWidget {
 
 class _ClearateLogoMark extends StatelessWidget {
   const _ClearateLogoMark({
-    this.size = 96,
-    this.padding = 16,
+    this.size = 112,
+    this.padding = 18,
   });
 
   final double size;
@@ -270,34 +267,37 @@ class _ClearateLogoPainter extends CustomPainter {
     final circlePaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
-      ..strokeWidth = size.shortestSide * 0.12
+      ..isAntiAlias = true
+      ..strokeWidth = size.shortestSide * 0.11
       ..strokeCap = StrokeCap.round;
     final linePaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
-      ..strokeWidth = size.shortestSide * 0.12
+      ..isAntiAlias = true
+      ..strokeWidth = size.shortestSide * 0.11
       ..strokeCap = StrokeCap.round;
     final checkPaint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
-      ..strokeWidth = size.shortestSide * 0.1
+      ..isAntiAlias = true
+      ..strokeWidth = size.shortestSide * 0.095
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
     canvas.drawCircle(
-      Offset(size.width * 0.45, size.height * 0.42),
-      size.shortestSide * 0.23,
+      Offset(size.width * 0.44, size.height * 0.41),
+      size.shortestSide * 0.24,
       circlePaint,
     );
     canvas.drawLine(
-      Offset(size.width * 0.59, size.height * 0.57),
-      Offset(size.width * 0.79, size.height * 0.77),
+      Offset(size.width * 0.60, size.height * 0.57),
+      Offset(size.width * 0.82, size.height * 0.79),
       linePaint,
     );
     final check = Path()
-      ..moveTo(size.width * 0.31, size.height * 0.34)
-      ..lineTo(size.width * 0.40, size.height * 0.53)
-      ..lineTo(size.width * 0.49, size.height * 0.44);
+      ..moveTo(size.width * 0.31, size.height * 0.35)
+      ..lineTo(size.width * 0.40, size.height * 0.52)
+      ..lineTo(size.width * 0.52, size.height * 0.41);
     canvas.drawPath(check, checkPaint);
   }
 
@@ -318,30 +318,31 @@ class _FeatureTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.08),
+        color: theme.colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.white.withOpacity(0.12)),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: Colors.white, size: 20),
+          Icon(icon, color: theme.colorScheme.onSurface, size: 20),
           const SizedBox(height: 10),
           Text(
             title,
-            style: Theme.of(context).textTheme.labelMd.copyWith(
-                  color: Colors.white,
+            style: theme.textTheme.labelMd.copyWith(
+                  color: theme.colorScheme.onSurface,
                   fontWeight: FontWeight.w700,
                 ),
           ),
           const SizedBox(height: 6),
           Text(
             body,
-            style: Theme.of(context).textTheme.labelMd.copyWith(
-                  color: Colors.white.withOpacity(0.78),
+            style: theme.textTheme.labelMd.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
                   fontSize: 11,
                 ),
           ),
@@ -549,6 +550,7 @@ class _AboutScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final connectedToSource = AppScope.of(context).ratesController.state.snapshot?.serverTime != null;
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
@@ -782,20 +784,49 @@ class _SupportScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Message us on WhatsApp with your question. We typically respond within an hour during business hours.',
+                  'Message us on WhatsApp with your question, a screenshot if relevant, and the phone model you are using. We will get back to you as fast as we can.',
                   style: theme.textTheme.bodyMd.copyWith(color: Colors.white.withOpacity(0.72)),
                 ),
                 const SizedBox(height: 18),
                 _WhatsAppRow(
-                  number: '+263 771 479 216',
+                  number: '+263771479216',
                   uri: Uri.parse('https://wa.me/263771479216'),
                 ),
                 const SizedBox(height: 10),
                 _WhatsAppRow(
-                  number: '+263 780 464 255',
+                  number: '+263780464255',
                   uri: Uri.parse('https://wa.me/263780464255'),
                 ),
               ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.secondaryContainer,
+              borderRadius: BorderRadius.circular(18),
+            ),
+            child: Text(
+              'Note - these are personal numbers while Clearate is in early launch. Response times may vary. A dedicated support line is coming soon.',
+              style: theme.textTheme.bodyMd.copyWith(
+                color: theme.colorScheme.onSecondaryContainer,
+              ),
+            ),
+          ),
+          const SizedBox(height: 14),
+          Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.surfaceContainerLowest,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: theme.colorScheme.outlineVariant),
+            ),
+            child: Text(
+              'Before you message - check the FAQ above. Most questions are answered there and you will get a faster answer than waiting for a reply.',
+              style: theme.textTheme.bodyMd.copyWith(
+                color: theme.colorScheme.onSurface,
+              ),
             ),
           ),
           const SizedBox(height: 18),
@@ -929,29 +960,64 @@ class _FaqScreen extends StatelessWidget {
           _FaqAccordion(
             title: 'How do I use Price Check?',
             body:
-                'Price Check helps you verify if a retailer\'s price matches official rates:\n\n'
-                '1. Enter the USD Price of the item.\n'
-                '2. Enter the Rand or ZiG Price being charged by the shop.\n'
-                '3. Clearate will automatically compare the two using current RBZ data.',
+                'Price Check is for anyone involved in a transaction where two currencies meet - buying, selling, exchanging, or receiving payment. It tells you whether the rate you are being given is fair based on today\'s official RBZ rate.\n\n'
+                'Open the Price Check tab. You will see two fields.\n\n'
+                'The first field says "Price you know in" followed by a currency dropdown. This is the amount you already know the value of. If something is priced at \$1, type 1 and select USD. If you are selling tomatoes worth R50, type 50 and select ZAR.\n\n'
+                'The second field says "Price you are quoted in" followed by a currency dropdown. This is what the other person is asking you to pay or offering you. Type that number and select its currency.\n\n'
+                'Tap the check button. Clearate gives you one of three verdicts instantly.\n\n'
+                'FAIR in green means the rate being applied is within the acceptable range of today\'s official rate. The transaction is honest.\n\n'
+                'OVERCHARGED in red means you are being asked to pay more than the fair rate allows. The exact amount you are being overcharged is shown - not a percentage, a real number in the currency you are paying.\n\n'
+                'UNDERVALUED in amber means you are being offered less than the fair rate. This applies when you are selling or exchanging and the offer is below what the official rate justifies.\n\n'
+                'Example for a buyer - a shop says \$1 bread costs R22. You type 1 in the first field, select USD, type 22 in the second field, select ZAR. Clearate tells you if R22 is a fair exchange for \$1 today.\n\n'
+                'Example for a seller - you are selling goods worth \$10 and someone offers you R150. You type 10 in the first field, select USD, type 150 in the second field, select ZAR. Clearate tells you if R150 is a fair amount for \$10 worth of goods today.\n\n'
+                'Example for a money changer - someone offers you 13 ZiG for \$1. You type 1 in the first field, select USD, type 13 in the second field, select ZiG. Clearate tells you if that rate is fair against the official RBZ rate.',
             positiveLabel: 'FAIR',
-            positiveText: 'The price is within the legal limit.',
+            positiveText: 'The transaction is honest.',
             dangerLabel: 'OVERCHARGED',
-            dangerText: 'The rate exceeds official guidelines.',
+            dangerText: 'You are being asked to pay more than the fair rate allows.',
             infoLabel: 'UNDERVALUED',
-            infoText: 'The price is lower than expected.',
+            infoText: 'The offer is below what the official rate justifies.',
           ),
           const SizedBox(height: 10),
-          _FaqItem(title: 'How do I share rates without internet?'),
+          _FaqItem(
+            title: 'How do I share rates without internet?',
+            body:
+                'If you have today\'s rates and someone near you does not have internet, you can share your rates with them directly. No internet is needed on either phone.\n\n'
+                'On the Rates screen tap Show QR. Your phone displays a QR code containing today\'s rates and the exact time they were fetched.\n\n'
+                'The other person opens Clearate, taps Scan, and points their camera at your screen. Their app reads the rates from your QR code and updates instantly. They see the same rates you have along with a timestamp showing when the rates were originally fetched.\n\n'
+                'If their rates are already newer than yours, Clearate tells them - "Your rates are more up to date. Show your QR code instead." This way the person with the most recent rates always shares, not the other way around.\n\n'
+                'The QR code contains only rate data. No personal information. Nothing is sent to any server. It is purely device to device.',
+          ),
           const SizedBox(height: 10),
-          _FaqItem(title: 'Where do the rates come from?'),
+          _FaqItem(
+            title: 'Where do the rates come from?',
+            body:
+                'All rates are the official Reserve Bank of Zimbabwe interbank rates fetched through the ZimRate API by Statotec. Clearate reads and displays the official published rate - it does not set, adjust, or influence rates in any way. Source: zimrate.statotec.com',
+          ),
           const SizedBox(height: 10),
-          _FaqItem(title: 'The app is showing an old rate - is something wrong?'),
+          _FaqItem(
+            title: 'The app is showing an old rate - is something wrong?',
+            body:
+                'No. Clearate saves the last fetched rate on your phone so it always has a number to show even without internet. If the timestamp shows yesterday or earlier it means the app has not been able to fetch a new rate yet - either because you have no data connection or the app has not been opened today while connected. Connect to WiFi or mobile data and open the app. The rate updates automatically. The timestamp always shows exactly when the rate was last fetched so you always know how current your data is.',
+          ),
           const SizedBox(height: 10),
-          _FaqItem(title: 'My phone says the APK is unsafe - should I install it?'),
+          _FaqItem(
+            title: 'My phone says the APK is unsafe - should I install it?',
+            body:
+                'Yes it is safe. Android shows this warning for any app installed outside the Google Play Store - it is a standard system message that appears for all apps distributed this way, not a specific problem with Clearate. To install, tap Settings on the warning screen and enable Install from this source. Clearate will be available on the Play Store soon for users who prefer that route.',
+          ),
           const SizedBox(height: 10),
-          _FaqItem(title: 'Does Clearate work on any network?'),
+          _FaqItem(
+            title: 'Does Clearate work on any network?',
+            body:
+                'Yes. Clearate is not connected to any telecom network. It works the same on Econet, NetOne, Telecel, or any other SIM. It also works on WiFi with no SIM at all. The rates it fetches are the official RBZ rates which are the same for everyone.',
+          ),
           const SizedBox(height: 10),
-          _FaqItem(title: 'Does Clearate cost anything?'),
+          _FaqItem(
+            title: 'Does Clearate cost anything?',
+            body:
+                'The full app is free. Rates, Price Check, Converter, and QR sharing are all free with no limits and no hidden charges. A Pro tier with additional features will be introduced in a future update. Everything you have now will always remain free.',
+          ),
           const SizedBox(height: 18),
           Container(
             height: 160,
@@ -1012,27 +1078,27 @@ class _LegalScreen extends StatelessWidget {
             icon: Icons.gavel,
             title: 'Terms of Use',
             body:
-                'Clearate is an information tool designed to provide visibility into market currency rates. It is strictly informational and not a licensed financial advisor.\n\n'
-                'Users are responsible for verifying all rate information independently before engaging in any financial transactions. Britek and its founder bear no liability for financial decisions, losses, or damages resulting from the use of this application.',
+                'Clearate is an information tool built to help Zimbabweans access official exchange rate data and make more informed decisions about currency transactions. It is not a licensed financial advisor, currency dealer, investment service, or banking product. Nothing displayed in this application constitutes financial advice.\n\n'
+                'Exchange rate data is sourced from the Reserve Bank of Zimbabwe via the ZimRate API and is provided in good faith. Britek makes no guarantee of the accuracy, completeness, or timeliness of any rate data displayed. Users are responsible for verifying important financial decisions through official banking channels before acting on them.\n\n'
+                'By using Clearate you agree that Britek and its founder bear no liability for any financial decisions made based on information displayed in this application. Use this app as one source of information, not the only one.',
             calloutTitle: 'Important',
-            calloutBody: 'By using this tool, you acknowledge that rates are subject to rapid market volatility.',
+            calloutBody: 'Rates are subject to rapid market volatility.',
           ),
           const SizedBox(height: 16),
           _LegalCard(
             icon: Icons.lock,
             title: 'Privacy Policy',
             body:
-                'Clearate respects your privacy and operates on a principle of minimal data collection. We collect anonymous usage data through Firebase to improve app performance and stability.\n\n'
-                'No personally identifiable information is ever collected or stored. Currency rate data is cached locally on your device for offline access. We never sell or share data with third-party advertisers or data brokers.',
+                'Clearate respects your privacy completely.\n\nAnonymous usage data is collected through Firebase Analytics. This includes app opens, screen views, and feature usage counts. No personal information, no names, no phone numbers, no transaction details, and no identifiable data is ever collected or stored on Britek servers.\n\nRate data fetched from the RBZ is cached locally on your device only. It never leaves your phone unless you choose to share it via the QR feature, which is purely device to device with no server involvement.\n\nClearate will never sell, share, or monetise any user data.',
           ),
           const SizedBox(height: 16),
           _LegalCard(
             icon: Icons.info,
             title: 'Disclaimer',
             body:
-                'Fair price thresholds displayed in the app are calculated based on prevailing retail market conditions and are updated at regular intervals. These figures represent observed trends, not mandated prices.',
+                'The fair price thresholds used in the Price Check feature are based on observed Zimbabwean retail market conditions and are intended as a general guide only. Individual transactions may have legitimate reasons for falling outside these ranges. Always use your own judgement.',
             calloutTitle: 'Use Your Judgement',
-            calloutBody: 'Please use your own judgement and consult with professional financial institutions for high-value transactions.',
+            calloutBody: 'Always use your own judgement.',
             calloutColor: const Color(0xFFFFE8E8),
             calloutTextColor: const Color(0xFF9F1E1E),
           ),
@@ -1101,9 +1167,19 @@ class _LegalScreen extends StatelessWidget {
 class _RateSourceScreen extends StatelessWidget {
   const _RateSourceScreen();
 
+  Future<void> _openUrl(BuildContext context, Uri uri) async {
+    if (!await launchUrl(uri, mode: LaunchMode.externalApplication)) {
+      if (!context.mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Could not open link.')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final connectedToSource = AppScope.of(context).ratesController.state.snapshot?.serverTime != null;
     return Scaffold(
       backgroundColor: theme.colorScheme.surface,
       appBar: AppBar(
@@ -1176,7 +1252,7 @@ class _RateSourceScreen extends StatelessWidget {
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Text(
-                    'Rates sourced from RBZ via ZimRate API.',
+                    'Rates sourced from RBZ via ZimRate API by Statotec.\nSource: zimrate.statotec.com',
                     style: theme.textTheme.bodyMd.copyWith(color: theme.colorScheme.onSurfaceVariant),
                   ),
                 ),
@@ -1198,48 +1274,15 @@ class _RateSourceScreen extends StatelessWidget {
             body:
                 'The primary authority for official interbank exchange rates. These rates represent the weighted average of market trades.',
             action: 'Visit Website',
+            onTapAction: () => _openUrl(context, Uri.parse('https://www.rbz.co.zw/')),
           ),
           const SizedBox(height: 12),
           _ProviderCard(
             icon: Icons.api,
             title: 'ZimRate API',
             body:
-                'A specialized data aggregator that bridges official banking feeds with digital utility applications for real-time delivery.',
-            footerChip: 'API Connection: Active',
-          ),
-          const SizedBox(height: 18),
-          Container(
-            padding: const EdgeInsets.all(18),
-            decoration: BoxDecoration(
-              color: const Color(0xFF10162A),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'Refresh Frequency',
-                      style: theme.textTheme.labelMd.copyWith(
-                        color: Colors.white.withOpacity(0.6),
-                        letterSpacing: 1.2,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Every 15 Minutes',
-                      style: theme.textTheme.headlineMd.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-                const Icon(Icons.update, color: Colors.white54, size: 34),
-              ],
-            ),
+                'All rates are the official Reserve Bank of Zimbabwe interbank rates fetched through the ZimRate API by Statotec. Clearate reads and displays the official published rate - it does not set, adjust, or influence rates in any way.',
+            footerChip: connectedToSource ? 'API Connection: Active' : null,
           ),
           const SizedBox(height: 18),
           Text(
@@ -1433,9 +1476,13 @@ class _FaqAccordion extends StatelessWidget {
 }
 
 class _FaqItem extends StatelessWidget {
-  const _FaqItem({required this.title});
+  const _FaqItem({
+    required this.title,
+    required this.body,
+  });
 
   final String title;
+  final String body;
 
   @override
   Widget build(BuildContext context) {
@@ -1454,10 +1501,7 @@ class _FaqItem extends StatelessWidget {
         children: [
           const Divider(height: 1),
           const SizedBox(height: 12),
-          Text(
-            'This item is covered in the stitched Clearate help flow. Open Rates once while online, then the app keeps working offline with your last saved reference rates.',
-            style: theme.textTheme.bodyMd.copyWith(height: 1.5),
-          ),
+          Text(body, style: theme.textTheme.bodyMd.copyWith(height: 1.5)),
         ],
       ),
     );
@@ -1614,6 +1658,7 @@ class _ProviderCard extends StatelessWidget {
     required this.title,
     required this.body,
     this.action,
+    this.onTapAction,
     this.footerChip,
   });
 
@@ -1621,11 +1666,13 @@ class _ProviderCard extends StatelessWidget {
   final String title;
   final String body;
   final String? action;
+  final VoidCallback? onTapAction;
   final String? footerChip;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final resolvedAction = onTapAction ?? _noop;
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -1651,7 +1698,7 @@ class _ProviderCard extends StatelessWidget {
                 if (action != null) ...[
                   const SizedBox(height: 8),
                   TextButton(
-                    onPressed: () {},
+                    onPressed: action == null ? null : resolvedAction,
                     style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
                     child: Row(
                       mainAxisSize: MainAxisSize.min,
@@ -1696,3 +1743,5 @@ class _ProviderCard extends StatelessWidget {
     );
   }
 }
+
+void _noop() {}
