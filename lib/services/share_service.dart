@@ -39,12 +39,16 @@ class ShareService {
         [XFile(file.path, mimeType: 'image/png')],
         text: text,
       );
-    } on UnimplementedError {
+    } catch (_) {
       await Share.share(text ?? 'Clearate share image saved at ${file.path}');
     }
   }
 
   Future<void> shareText(String text) async {
-    await Share.share(text);
+    try {
+      await Share.share(text);
+    } catch (_) {
+      // If sharing is unavailable, keep the app stable and fail silently.
+    }
   }
 }

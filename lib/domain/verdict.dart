@@ -9,6 +9,10 @@ class VerdictResult {
     required this.deltaAmount,
     required this.itemPrice,
     required this.askedToPay,
+    required this.upperThresholdPct,
+    required this.lowerThresholdPct,
+    required this.isVolatile,
+    required this.thresholdSource,
   });
 
   final VerdictKind kind;
@@ -30,4 +34,23 @@ class VerdictResult {
 
   /// User-entered amount being asked to pay.
   final double askedToPay;
+
+  /// Dynamic upper threshold percent from the backend, or a safe fallback.
+  final double upperThresholdPct;
+
+  /// Dynamic lower threshold percent from the backend, or a safe fallback.
+  final double lowerThresholdPct;
+
+  /// Whether the backend marked the market as volatile.
+  final bool isVolatile;
+
+  /// Source label for the threshold logic.
+  final String thresholdSource;
+
+  double get fairLowerAmount => expectedPay * (1 - (lowerThresholdPct / 100));
+
+  double get fairUpperAmount => expectedPay * (1 + (upperThresholdPct / 100));
+
+  String get retailMarginSummary =>
+      'Retail margin in use: +${upperThresholdPct.toStringAsFixed(2)}% / -${lowerThresholdPct.toStringAsFixed(2)}%';
 }

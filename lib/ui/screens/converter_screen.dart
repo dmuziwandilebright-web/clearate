@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/app_scope.dart';
 import '../../domain/currency.dart';
@@ -13,37 +14,9 @@ class ConverterScreen extends StatefulWidget {
 }
 
 class _ConverterScreenState extends State<ConverterScreen> {
+  final TextEditingController _amountController = TextEditingController();
   Currency _from = Currency.usd;
   Currency _to = Currency.zar;
-  String _input = '0';
-
-  void _append(String value) {
-    setState(() {
-      if (_input == '0' && value != '.') {
-        _input = value;
-        return;
-      }
-      if (value == '.' && _input.contains('.')) return;
-      if (_input.length >= 12) return;
-      _input += value;
-    });
-  }
-
-  void _backspace() {
-    setState(() {
-      if (_input == '0') return;
-      if (_input.length == 1) {
-        _input = '0';
-        return;
-      }
-      _input = _input.substring(0, _input.length - 1);
-      if (_input.isEmpty || _input == '-') _input = '0';
-    });
-  }
-
-  void _clear() {
-    setState(() => _input = '0');
-  }
 
   void _swap() {
     setState(() {
@@ -54,88 +27,175 @@ class _ConverterScreenState extends State<ConverterScreen> {
   }
 
   @override
+  void dispose() {
+    _amountController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final snapshot = AppScope.of(context).ratesController.state.snapshot;
-    final amount = double.tryParse(_input) ?? 0;
+    final amount = double.tryParse(_amountController.text.trim()) ?? 0;
     final rate = snapshot == null ? null : snapshot.rate(_from, _to);
     final converted = rate == null || rate <= 0 ? null : amount * rate;
+    final size = MediaQuery.sizeOf(context);
+    final compact = size.width <= 360 || size.height <= 800;
+    final wide = size.width >= 720;
+    final topPadding = compact ? 6.0 : 12.0;
+    final titleGap = compact ? 1.0 : 4.0;
+    final sectionGap = compact ? 8.0 : 18.0;
+    final panelGap = compact ? 6.0 : 12.0;
+    final bottomGap = compact ? 10.0 : 18.0;
+    final panelPadding = compact ? 8.0 : 14.0;
+    final panelHeight = compact ? 85.0 : (wide ? 112.0 : 124.0);
+    final swapSize = compact ? 34.0 : (wide ? 38.0 : 40.0);
 
-    return ListView(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
-      children: [
-        Text(
-          'Currency Converter',
-          style: theme.textTheme.headlineLgMobile.copyWith(fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          'Instant, accurate exchange calculations.',
-          style: theme.textTheme.bodyMd.copyWith(color: theme.colorScheme.onSurfaceVariant),
-        ),
-        const SizedBox(height: 18),
-        Stack(
-          clipBehavior: Clip.none,
-          alignment: Alignment.topCenter,
-          children: [
-            Column(
-              children: [
-                _AmountPanel(
-                  label: 'Money You Have',
-                  currency: _from,
-                  amountText: _input,
-                  amountColor: theme.colorScheme.primary,
-                  onCurrencyChanged: (value) => setState(() => _from = value),
+    return SafeArea(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          Widget buildPanels() {
+            if (wide) {
+              return SizedBox(
+                height: panelHeight,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _AmountPanel(
+                            label: 'Money You Have',
+                            currency: _from,
+                            amountController: _amountController,
+                            onAmountChanged: (_) => setState(() {}),
+                            amountText: _amountController.text,
+                            amountColor: theme.colorScheme.primary,
+                            compact: compact,
+                            panelPadding: panelPadding,
+                            onCurrencyChanged: (value) =>
+                                setState(() => _from = value),
+                          ),
+                        ),
+                        SizedBox(width: panelGap),
+                        Expanded(
+                          child: _AmountPanel(
+                            label: 'Money You Get',
+                            currency: _to,
+                            amountText: converted == null
+                                ? '---'
+                                : formatMoney(converted),
+                            amountColor: theme.colorScheme.onSurface,
+                            filled: true,
+                            compact: compact,
+                            panelPadding: panelPadding,
+                            onCurrencyChanged: (value) =>
+                                setState(() => _to = value),
+                          ),
+                        ),
+                      ],
+                    ),
+                    _SwapButton(
+                      size: swapSize,
+                      onTap: _swap,
+                    ),
+                  ],
                 ),
-                const SizedBox(height: 12),
-                _AmountPanel(
-                  label: 'Money You Get',
-                  currency: _to,
-                  amountText: converted == null ? '---' : formatMoney(converted),
-                  amountColor: theme.colorScheme.onSurface,
-                  filled: true,
-                  onCurrencyChanged: (value) => setState(() => _to = value),
+              );
+            }
+
+            return Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.topCenter,
+              children: [
+                Column(
+                  children: [
+                    SizedBox(
+                      height: panelHeight,
+                      child: _AmountPanel(
+                        label: 'Money You Have',
+                        currency: _from,
+                        amountController: _amountController,
+                        onAmountChanged: (_) => setState(() {}),
+                        amountText: _amountController.text,
+                        amountColor: theme.colorScheme.primary,
+                        compact: compact,
+                        panelPadding: panelPadding,
+                        onCurrencyChanged: (value) =>
+                            setState(() => _from = value),
+                      ),
+                    ),
+                    SizedBox(height: panelGap),
+                    SizedBox(
+                      height: panelHeight,
+                      child: _AmountPanel(
+                        label: 'Money You Get',
+                        currency: _to,
+                        amountText:
+                            converted == null ? '---' : formatMoney(converted),
+                        amountColor: theme.colorScheme.onSurface,
+                        filled: true,
+                        compact: compact,
+                        panelPadding: panelPadding,
+                        onCurrencyChanged: (value) =>
+                            setState(() => _to = value),
+                      ),
+                    ),
+                  ],
+                ),
+                Positioned(
+                  top: panelHeight - (swapSize / 2) + (panelGap / 2),
+                  child: _SwapButton(
+                    size: swapSize,
+                    onTap: _swap,
+                  ),
                 ),
               ],
-            ),
-            Positioned(
-              top: 86,
-              child: _SwapButton(onTap: _swap),
-            ),
-          ],
-        ),
-        const SizedBox(height: 28),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: theme.colorScheme.surfaceContainerHighest.withOpacity(0.25),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: theme.colorScheme.outlineVariant),
-          ),
-          child: GridView.count(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            crossAxisCount: 3,
-            mainAxisSpacing: 10,
-            crossAxisSpacing: 10,
-            childAspectRatio: 1.22,
-            children: [
-              for (final key in ['1', '2', '3', '4', '5', '6', '7', '8', '9', '.', '0'])
-                _KeypadKey(
-                  label: key,
-                  onTap: () => _append(key),
-                ),
-              _KeypadKey(
-                label: '⌫',
-                destructive: true,
-                onTap: _backspace,
-                onLongPress: _clear,
+            );
+          }
+
+          return SingleChildScrollView(
+            physics: const ClampingScrollPhysics(),
+            padding: EdgeInsets.fromLTRB(16, topPadding, 16, bottomGap),
+            child: ConstrainedBox(
+              constraints: BoxConstraints(minHeight: constraints.maxHeight),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    'Currency Converter',
+                    style: theme.textTheme.headlineLgMobile.copyWith(
+                      fontWeight: FontWeight.w700,
+                      fontSize: compact ? 24 : null,
+                    ),
+                  ),
+                  SizedBox(height: titleGap),
+                  if (!compact)
+                    Text(
+                      'Instant, accurate exchange calculations.',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodyMd.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  SizedBox(height: sectionGap),
+                  if (wide)
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: buildPanels()),
+                      ],
+                    )
+                  else
+                    buildPanels(),
+                ],
               ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 18),
-      ],
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -144,17 +204,25 @@ class _AmountPanel extends StatelessWidget {
   const _AmountPanel({
     required this.label,
     required this.currency,
+    this.amountController,
+    this.onAmountChanged,
     required this.amountText,
     required this.amountColor,
     required this.onCurrencyChanged,
+    required this.compact,
+    required this.panelPadding,
     this.filled = false,
   });
 
   final String label;
   final Currency currency;
+  final TextEditingController? amountController;
+  final ValueChanged<String>? onAmountChanged;
   final String amountText;
   final Color amountColor;
   final ValueChanged<Currency> onCurrencyChanged;
+  final bool compact;
+  final double panelPadding;
   final bool filled;
 
   @override
@@ -162,18 +230,14 @@ class _AmountPanel extends StatelessWidget {
     final theme = Theme.of(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(panelPadding),
       decoration: BoxDecoration(
-        color: filled ? theme.colorScheme.surfaceContainerLow : theme.colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(18),
+        color: filled
+            ? theme.colorScheme.surfaceContainerLow
+            : theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(compact ? 16 : 18),
         border: Border.all(color: theme.colorScheme.outlineVariant),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x10000000),
-            blurRadius: 8,
-            offset: Offset(0, 2),
-          ),
-        ],
+        boxShadow: const [],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,34 +245,74 @@ class _AmountPanel extends StatelessWidget {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text(
-                label,
-                style: theme.textTheme.labelMd.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMd.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                    fontSize: compact ? 11 : 13,
+                  ),
                 ),
               ),
-              _CurrencyMenu(currency: currency, onChanged: onCurrencyChanged),
+              _CurrencyMenu(
+                  currency: currency,
+                  compact: compact,
+                  onChanged: onCurrencyChanged),
             ],
           ),
-          const SizedBox(height: 10),
+          SizedBox(height: compact ? 2 : 6),
           Row(
             children: [
               Expanded(
-                child: Text(
-                  amountText,
-                  style: theme.textTheme.displayLg.copyWith(
-                    color: amountColor,
-                    fontSize: label == 'Money You Have' ? 38 : 36,
-                    height: 1.0,
-                    fontWeight: FontWeight.w700,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
+                child: amountController == null
+                    ? Text(
+                        amountText,
+                        style: theme.textTheme.displayLg.copyWith(
+                          color: amountColor,
+                          fontSize: compact
+                              ? (label == 'Money You Have' ? 26 : 24)
+                              : (label == 'Money You Have' ? 36 : 34),
+                          height: 1.0,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      )
+                    : TextField(
+                        controller: amountController,
+                        keyboardType: const TextInputType.numberWithOptions(
+                            decimal: true),
+                        inputFormatters: [
+                          FilteringTextInputFormatter.allow(
+                            RegExp(r'[0-9.]'),
+                          ),
+                        ],
+                        cursorColor: amountColor,
+                        style: theme.textTheme.displayLg.copyWith(
+                          color: amountColor,
+                          fontSize: compact
+                              ? (label == 'Money You Have' ? 26 : 24)
+                              : (label == 'Money You Have' ? 36 : 34),
+                          height: 1.0,
+                          fontWeight: FontWeight.w700,
+                        ),
+                        decoration: const InputDecoration(
+                          isDense: true,
+                          hintText: '0.00',
+                          border: InputBorder.none,
+                          enabledBorder: InputBorder.none,
+                          focusedBorder: InputBorder.none,
+                          disabledBorder: InputBorder.none,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        onChanged: onAmountChanged,
+                      ),
               ),
               Container(
-                width: 4,
-                height: 42,
+                width: compact ? 3 : 4,
+                height: compact ? 18 : 30,
                 decoration: BoxDecoration(
                   color: theme.colorScheme.onSurface.withOpacity(0.85),
                   borderRadius: BorderRadius.circular(999),
@@ -225,10 +329,12 @@ class _AmountPanel extends StatelessWidget {
 class _CurrencyMenu extends StatelessWidget {
   const _CurrencyMenu({
     required this.currency,
+    required this.compact,
     required this.onChanged,
   });
 
   final Currency currency;
+  final bool compact;
   final ValueChanged<Currency> onChanged;
 
   @override
@@ -244,27 +350,41 @@ class _CurrencyMenu extends StatelessWidget {
             ),
           )
           .toList(),
-      child: Row(
-        children: [
-          Text(
-            currency.uiLabel,
-            style: theme.textTheme.headlineMd.copyWith(
-              fontWeight: FontWeight.w700,
-              color: theme.colorScheme.onSurface,
+      child: Container(
+        padding: EdgeInsets.symmetric(
+            horizontal: compact ? 11 : 13, vertical: compact ? 7 : 9),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: theme.colorScheme.outlineVariant),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              currency.uiLabel,
+              style: theme.textTheme.labelMd.copyWith(
+                fontWeight: FontWeight.w700,
+                color: theme.colorScheme.onSurface,
+                fontSize: compact ? 12 : 14,
+              ),
             ),
-          ),
-          const SizedBox(width: 2),
-          Icon(Icons.keyboard_arrow_down, color: theme.colorScheme.onSurfaceVariant, size: 22),
-        ],
+            const SizedBox(width: 2),
+            Icon(Icons.keyboard_arrow_down,
+                color: theme.colorScheme.onSurfaceVariant,
+                size: compact ? 18 : 20),
+          ],
+        ),
       ),
     );
   }
 }
 
 class _SwapButton extends StatelessWidget {
-  const _SwapButton({required this.onTap});
+  const _SwapButton({required this.onTap, required this.size});
 
   final VoidCallback onTap;
+  final double size;
 
   @override
   Widget build(BuildContext context) {
@@ -275,10 +395,14 @@ class _SwapButton extends StatelessWidget {
       child: InkWell(
         onTap: onTap,
         customBorder: const CircleBorder(),
-        child: const SizedBox(
-          width: 48,
-          height: 48,
-          child: Icon(Icons.swap_vert, color: Colors.white),
+        child: SizedBox(
+          width: size,
+          height: size,
+          child: Icon(
+            Icons.swap_vert,
+            color: Colors.white,
+            size: size * 0.48,
+          ),
         ),
       ),
     );
@@ -287,16 +411,20 @@ class _SwapButton extends StatelessWidget {
 
 class _KeypadKey extends StatelessWidget {
   const _KeypadKey({
+    required this.size,
     required this.label,
     required this.onTap,
     this.onLongPress,
     this.destructive = false,
+    this.compact = false,
   });
 
+  final double size;
   final String label;
   final VoidCallback onTap;
   final VoidCallback? onLongPress;
   final bool destructive;
+  final bool compact;
 
   @override
   Widget build(BuildContext context) {
@@ -304,31 +432,37 @@ class _KeypadKey extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       onLongPress: onLongPress,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 120),
-        decoration: BoxDecoration(
-          color: destructive ? const Color(0xFFFFDAD6) : theme.colorScheme.surfaceContainerLowest,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: theme.colorScheme.outlineVariant),
-          boxShadow: const [
-            BoxShadow(
-              color: Color(0x11000000),
-              blurRadius: 6,
-              offset: Offset(0, 2),
-            ),
-          ],
+      child: SizedBox(
+        width: size,
+        height: size,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 120),
+          decoration: BoxDecoration(
+            color: destructive
+                ? const Color(0xFFFFDAD6)
+                : theme.colorScheme.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(size / 2),
+            border: Border.all(color: theme.colorScheme.outlineVariant),
+            boxShadow: const [],
+          ),
+          alignment: Alignment.center,
+          child: Padding(
+            padding: EdgeInsets.all(compact ? 2.5 : 3.5),
+            child: label == '⌫'
+                ? Icon(Icons.backspace_outlined,
+                    color: theme.colorScheme.error, size: compact ? 16 : 18)
+                : Text(
+                    label,
+                    style: theme.textTheme.headlineMd.copyWith(
+                      color: destructive
+                          ? theme.colorScheme.error
+                          : theme.colorScheme.onSurface,
+                      fontSize: compact ? 20 : 22,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+          ),
         ),
-        alignment: Alignment.center,
-        child: label == '⌫'
-            ? Icon(Icons.backspace_outlined, color: theme.colorScheme.error)
-            : Text(
-                label,
-                style: theme.textTheme.headlineMd.copyWith(
-                  color: destructive ? theme.colorScheme.error : theme.colorScheme.onSurface,
-                  fontSize: 30,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
       ),
     );
   }

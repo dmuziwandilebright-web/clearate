@@ -1,6 +1,8 @@
+import 'dart:io';
 import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:path_provider/path_provider.dart';
 
 import '../domain/rate_snapshot.dart';
 
@@ -9,31 +11,72 @@ class RatesCache {
 
   static const _key = 'clearate_rate_snapshot_v1';
   static const _prevKey = 'clearate_rate_snapshot_prev_v1';
+  static const _backupFileName = 'clearate_rate_snapshot_backup.json';
 
   final SharedPreferences _prefs;
 
   RateSnapshot? readLatest() {
-    final raw = _prefs.getString(_key);
-    if (raw == null) return null;
-    final decoded = json.decode(raw);
-    if (decoded is! Map) return null;
-    return RateSnapshot.fromJson(decoded.cast<String, Object?>());
+    try {
+      final raw = _prefs.getString(_key);
+      if (raw == null) return null;
+      final decoded = json.decode(raw);
+      if (decoded is! Map) return null;
+      return RateSnapshot.fromJson(decoded.cast<String, Object?>());
+    } catch (_) {
+      return null;
+    }
   }
 
   RateSnapshot? readPrevious() {
-    final raw = _prefs.getString(_prevKey);
-    if (raw == null) return null;
-    final decoded = json.decode(raw);
-    if (decoded is! Map) return null;
-    return RateSnapshot.fromJson(decoded.cast<String, Object?>());
+    try {
+      final raw = _prefs.getString(_prevKey);
+      if (raw == null) return null;
+      final decoded = json.decode(raw);
+      if (decoded is! Map) return null;
+      return RateSnapshot.fromJson(decoded.cast<String, Object?>());
+    } catch (_) {
+      return null;
+    }
   }
 
-  Future<void> writeLatest(RateSnapshot snapshot) async {
+  Future<RateSnapshot?> readBackupLatest() async {
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final file = File('${dir.path}/$_backupFileName');
+      if (!await file.exists()) return null;
+      final raw = await file.readAsString();
+      final decoded = json.decode(raw);
+      if (decoded is! Map) return null;
+      return RateSnapshot.fromJson(decoded.cast<String, Object?>());
+    } catch (_) {
+      return null;
+    }
+  }
+
+  Future<bool> writeLatest(RateSnapshot snapshot) async {
     final current = readLatest();
     if (current != null) {
-      await _prefs.setString(_prevKey, json.encode(current.toJson()));
+      try {
+        await _prefs.setString(_prevKey, json.encode(current.toJson()));
+      } catch (_) {
+        // Ignore and continue to best-effort backup storage.
+      }
     }
-    await _prefs.setString(_key, json.encode(snapshot.toJson()));
+    final payload = json.encode(snapshot.toJson());
+    var wrotePrefs = false;
+    try {
+      wrotePrefs = await _prefs.setString(_key, payload);
+    } catch (_) {
+      wrotePrefs = false;
+    }
+
+    try {
+      final dir = await getApplicationSupportDirectory();
+      final file = File('${dir.path}/$_backupFileName');
+      await file.writeAsString(payload, flush: true);
+      return true;
+    } catch (_) {
+      return wrotePrefs;
+    }
   }
 }
-

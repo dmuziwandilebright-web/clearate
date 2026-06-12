@@ -1,6 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/app_scope.dart';
+import '../../config/brand_assets.dart';
+import '../../state/rates_controller.dart';
 import '../theme.dart';
 import 'converter_screen.dart';
 import 'more_screen.dart';
@@ -14,7 +18,7 @@ class HomeShell extends StatefulWidget {
   State<HomeShell> createState() => _HomeShellState();
 }
 
-class _HomeShellState extends State<HomeShell> {
+class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   static const _tabs = <Widget>[
     RatesScreen(),
     VerdictScreen(),
@@ -23,6 +27,67 @@ class _HomeShellState extends State<HomeShell> {
   ];
 
   int _index = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  Future<void> _reloadFromStorage() async {
+    await AppScope.of(context).ratesController.restoreFromStorage();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      unawaited(_reloadFromStorage());
+    }
+  }
+
+  void _showWarmSnack(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFFFFF5EA),
+        content: Text(
+          message,
+          style: const TextStyle(
+            color: Color(0xFF6D3A00),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _refreshRates() async {
+    final result =
+        await AppScope.of(context).ratesController.refreshIfAllowed();
+    if (!mounted) return;
+
+    if (result == RatesRefreshResult.refreshed) {
+      _showWarmSnack('Rates refreshed. You are now on the latest rates.');
+    } else if (result == RatesRefreshResult.alreadyFresh) {
+      _showWarmSnack(
+        'You already have the latest rates. We will check again after 24 hours.',
+      );
+    } else if (result == RatesRefreshResult.rejected) {
+      _showWarmSnack(
+        'That update looked unusual, so we kept your saved rates.',
+      );
+    } else {
+      _showWarmSnack(
+        'Could not refresh right now. We kept your saved rates safely.',
+      );
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +102,7 @@ class _HomeShellState extends State<HomeShell> {
         title: const _BrandTitle(),
         actions: [
           IconButton(
-            onPressed: () => AppScope.of(context).ratesController.forceRefresh(),
+            onPressed: _refreshRates,
             icon: const Icon(Icons.sync),
             tooltip: 'Refresh rates',
           ),
@@ -101,31 +166,13 @@ class _BrandMark extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SizedBox(
-      width: 22,
-      height: 22,
-      child: Stack(
-        alignment: Alignment.center,
-        children: [
-          Container(
-            decoration: BoxDecoration(
-              border: Border.all(color: Colors.white, width: 2),
-              borderRadius: BorderRadius.circular(4),
-            ),
-          ),
-          Positioned(
-            right: 4,
-            top: 4,
-            child: Container(
-              width: 4,
-              height: 4,
-              decoration: const BoxDecoration(
-                color: Colors.white,
-                shape: BoxShape.circle,
-              ),
-            ),
-          ),
-        ],
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(5),
+      child: Image.asset(
+        BrandAssets.appLogo,
+        width: 24,
+        height: 24,
+        fit: BoxFit.cover,
       ),
     );
   }

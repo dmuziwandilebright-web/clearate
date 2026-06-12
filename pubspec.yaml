@@ -72,6 +72,8 @@ flutter:
 
   assets:
     - assets/
+    - stictch_loader_icon/stitch_clearate_zimbabwe_financial_truth_app/clearate_blue_on_white_logo/screen.png
+    - stictch_loader_icon/stitch_clearate_zimbabwe_financial_truth_app/clearate_loading_screen/screen.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,11 +6,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 import 'package:qr_flutter/qr_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/app_scope.dart';
 import '../../domain/currency.dart';
 import '../../domain/rate_snapshot.dart';
 import '../../state/rates_controller.dart';
+import '../../services/analytics_service.dart';
 import '../../services/share_service.dart';
 import '../formatters.dart';
 import '../theme.dart';
@@ -21,16 +24,29 @@ class RatesScreen extends StatefulWidget {
   State<RatesScreen> createState() => _RatesScreenState();
 }
 
-class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStateMixin {
+class _RatesScreenState extends State<RatesScreen>
+    with SingleTickerProviderStateMixin {
+  static const _staleBannerDismissedKey = 'rates_stale_banner_dismissed_at';
+
   late final AnimationController _shimmerController;
+  Timer? _uiTick;
+  SharedPreferences? _prefs;
+  DateTime? _staleBannerDismissedAt;
 
   @override
   void initState() {
     super.initState();
+    unawaited(AnalyticsService.logScreenView('rates_screen'));
     _shimmerController = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1500),
     )..repeat();
+    _uiTick = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) {
+        setState(() {});
+      }
+    });
+    _loadPrefs();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       AppScope.of(context).ratesController.refreshIfAllowed();
@@ -39,8 +55,73 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
 
   @override
   void dispose() {
+    _uiTick?.cancel();
     _shimmerController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    final dismissed = prefs.getString(_staleBannerDismissedKey);
+    if (!mounted) return;
+    setState(() {
+      _prefs = prefs;
+      _staleBannerDismissedAt =
+          dismissed == null ? null : DateTime.tryParse(dismissed);
+    });
+  }
+
+  Future<void> _dismissStaleBanner() async {
+    final prefs = _prefs ?? await SharedPreferences.getInstance();
+    final dismissedAt = DateTime.now();
+    await prefs.setString(
+        _staleBannerDismissedKey, dismissedAt.toIso8601String());
+    if (!mounted) return;
+    setState(() {
+      _prefs = prefs;
+      _staleBannerDismissedAt = dismissedAt;
+    });
+  }
+
+  void _showWarmSnack(String message) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: const Color(0xFFFFF5EA),
+        content: Text(
+          message,
+          style: const TextStyle(
+            color: Color(0xFF6D3A00),
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _refreshRates({
+    required RatesController controller,
+    bool force = false,
+  }) async {
+    final result = await controller.refreshIfAllowed(force: force);
+    if (!mounted) return;
+
+    if (result == RatesRefreshResult.refreshed) {
+      _showWarmSnack('Rates refreshed. You are now on the latest rates.');
+    } else if (result == RatesRefreshResult.alreadyFresh) {
+      _showWarmSnack(
+        'You already have the latest rates. We will check again after 24 hours.',
+      );
+    } else if (result == RatesRefreshResult.rejected) {
+      _showWarmSnack(
+        'That update looked unusual, so we kept your saved rates.',
+      );
+    } else {
+      _showWarmSnack(
+        'Could not refresh right now. We kept your saved rates safely.',
+      );
+    }
   }
 
   @override
@@ -53,25 +134,38 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
       builder: (context, _) {
         final snapshot = controller.state.snapshot;
         final previous = controller.previousSnapshot;
-        final warning = controller.state.warning;
         final isLoading = controller.state.isRefreshing && snapshot == null;
+        final now = DateTime.now();
+        final ageSource = snapshot?.serverTime?.toLocal();
+        final snapshotAge =
+            ageSource == null ? null : now.difference(ageSource);
+        final isStale =
+            snapshotAge != null && snapshotAge >= const Duration(hours: 24);
+        final showStaleBanner = isStale &&
+            (_staleBannerDismissedAt == null ||
+                now.difference(_staleBannerDismissedAt!) >=
+                    const Duration(hours: 24));
 
         return Stack(
           children: [
             ListView(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
               children: [
-                Center(
-                  child: _LivePill(
+                if (snapshot != null) ...[
+                  _RatesTimestampBar(
                     snapshot: snapshot,
-                    isUpdating: controller.state.isRefreshing,
+                    age: snapshotAge,
                   ),
-                ),
-                if (warning != null) ...[
+                ],
+                if (controller.state.warning != null) ...[
                   const SizedBox(height: 12),
-                  _WarningBanner(
-                    text: warning,
-                    onRetry: controller.forceRefresh,
+                  _AnomalyBanner(text: controller.state.warning!),
+                ],
+                if (showStaleBanner) ...[
+                  const SizedBox(height: 12),
+                  _StaleRatesBanner(
+                    onRefresh: () => _refreshRates(controller: controller),
+                    onDismiss: _dismissStaleBanner,
                   ),
                 ],
                 const SizedBox(height: 16),
@@ -108,10 +202,30 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
                     snapshot: snapshot,
                     previous: previous,
                   ),
-                  if (snapshot.bwpUsd > 0) ...[
+                  if (snapshot.rate(Currency.usd, Currency.bwp) > 0 ||
+                      snapshot.bwpZar > 0 ||
+                      snapshot.bwpZwg > 0) ...[
                     const SizedBox(height: 16),
                     _RateCard(
                       from: Currency.usd,
+                      to: Currency.bwp,
+                      snapshot: snapshot,
+                      previous: previous,
+                    ),
+                  ],
+                  if (snapshot.bwpZar > 0) ...[
+                    const SizedBox(height: 16),
+                    _RateCard(
+                      from: Currency.bwp,
+                      to: Currency.zar,
+                      snapshot: snapshot,
+                      previous: previous,
+                    ),
+                  ],
+                  if (snapshot.bwpZwg > 0) ...[
+                    const SizedBox(height: 16),
+                    _RateCard(
+                      from: Currency.zwg,
                       to: Currency.bwp,
                       snapshot: snapshot,
                       previous: previous,
@@ -126,10 +240,13 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
               bottom: 16,
               child: SafeArea(
                 top: false,
-              child: _RatesActionBar(
-                  showQrEnabled: snapshot != null && !controller.state.isRefreshing,
+                child: _RatesActionBar(
+                  showQrEnabled:
+                      snapshot != null && !controller.state.isRefreshing,
                   scanEnabled: !controller.state.isRefreshing,
-                  onShowQr: snapshot == null ? null : () => _showQrDialog(context, controller),
+                  onShowQr: snapshot == null
+                      ? null
+                      : () => _showQrDialog(context, controller),
                   onScan: () => _showScannerDialog(context),
                 ),
               ),
@@ -140,7 +257,8 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
     );
   }
 
-  Future<void> _showQrDialog(BuildContext context, RatesController controller) async {
+  Future<void> _showQrDialog(
+      BuildContext context, RatesController controller) async {
     final shareService = ShareService();
     final qrKey = GlobalKey();
     RateSnapshot? displayedSnapshot = controller.state.snapshot;
@@ -162,14 +280,16 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
                 child: StatefulBuilder(
                   builder: (context, setState) {
                     final snapshot = displayedSnapshot;
-                    final payload = snapshot == null ? '{}' : jsonEncode(snapshot.toJson());
+                    final payload =
+                        snapshot == null ? '{}' : jsonEncode(snapshot.toJson());
                     final card = Container(
                       width: 368,
                       padding: const EdgeInsets.all(18),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.surfaceContainerLowest,
                         borderRadius: BorderRadius.circular(22),
-                        border: Border.all(color: theme.colorScheme.outlineVariant),
+                        border:
+                            Border.all(color: theme.colorScheme.outlineVariant),
                         boxShadow: const [
                           BoxShadow(
                             color: Color(0x18000000),
@@ -191,7 +311,9 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
                               ),
                               const Spacer(),
                               IconButton(
-                                onPressed: busy ? null : () => Navigator.of(context).pop(),
+                                onPressed: busy
+                                    ? null
+                                    : () => Navigator.of(context).pop(),
                                 icon: const Icon(Icons.close),
                               ),
                             ],
@@ -206,7 +328,8 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
                                 decoration: BoxDecoration(
                                   color: Colors.white,
                                   borderRadius: BorderRadius.circular(20),
-                                  border: Border.all(color: theme.colorScheme.outlineVariant),
+                                  border: Border.all(
+                                      color: theme.colorScheme.outlineVariant),
                                 ),
                                 child: Column(
                                   children: [
@@ -217,7 +340,8 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
                                         padding: const EdgeInsets.all(10),
                                         gapless: false,
                                         backgroundColor: Colors.white,
-                                        errorStateBuilder: (context, error) => Center(
+                                        errorStateBuilder: (context, error) =>
+                                            Center(
                                           child: Text(
                                             'Could not build QR',
                                             style: theme.textTheme.bodyMd,
@@ -228,12 +352,12 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
                                     const SizedBox(height: 10),
                                     Text(
                                       snapshot == null
-                                          ? 'Reference rates'
-                                          : snapshot.serverTime == null
-                                              ? 'Showing reference rates'
-                                              : 'Live rates • ${formatHonestUpdated(snapshot.fetchedAt)}',
+                                          ? 'Rates snapshot'
+                                          : formatLocalSavedRateLabel(
+                                              snapshot.fetchedAt),
                                       style: theme.textTheme.labelMd.copyWith(
-                                        color: theme.colorScheme.onSurfaceVariant,
+                                        color:
+                                            theme.colorScheme.onSurfaceVariant,
                                         fontWeight: FontWeight.w700,
                                       ),
                                       textAlign: TextAlign.center,
@@ -245,12 +369,25 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
                           ),
                           const SizedBox(height: 14),
                           Text(
-                            'Let others scan this code to get current exchange rates instantly.',
+                            snapshot == null
+                                ? 'Let others scan this code to get reference exchange rates instantly.'
+                                : 'Let others scan this code to get current exchange rates and today\'s retail margin instantly.',
                             style: theme.textTheme.bodyMd.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                ),
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
                             textAlign: TextAlign.center,
                           ),
+                          if (snapshot != null) ...[
+                            const SizedBox(height: 6),
+                            Text(
+                              'Retail margin in use: +${snapshot.upperThresholdPct.toStringAsFixed(2)}% / -${snapshot.lowerThresholdPct.toStringAsFixed(2)}%',
+                              style: theme.textTheme.labelMd.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w700,
+                              ),
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                           const SizedBox(height: 14),
                           Row(
                             children: [
@@ -261,8 +398,13 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
                                       : () async {
                                           setState(() => busy = true);
                                           try {
-                                            await controller.forceRefresh();
-                                            displayedSnapshot = controller.state.snapshot ?? displayedSnapshot;
+                                            await _refreshRates(
+                                              controller: controller,
+                                              force: false,
+                                            );
+                                            displayedSnapshot =
+                                                controller.state.snapshot ??
+                                                    displayedSnapshot;
                                             setState(() {});
                                           } finally {
                                             if (context.mounted) {
@@ -280,14 +422,19 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
                                   onPressed: busy
                                       ? null
                                       : () async {
-                                          final boundary = qrKey.currentContext?.findRenderObject();
-                                          if (boundary is! RenderRepaintBoundary) return;
+                                          final boundary = qrKey.currentContext
+                                              ?.findRenderObject();
+                                          if (boundary
+                                              is! RenderRepaintBoundary) return;
                                           setState(() => busy = true);
                                           try {
-                                            await shareService.sharePngFromBoundary(
+                                            await shareService
+                                                .sharePngFromBoundary(
                                               boundary: boundary,
                                               fileNameBase: 'clearate_rates',
-                                              text: 'Clearate rates snapshot',
+                                              text: snapshot == null
+                                                  ? 'Clearate rates snapshot'
+                                                  : 'Clearate rates snapshot. Retail margin +${snapshot.upperThresholdPct.toStringAsFixed(2)}% / -${snapshot.lowerThresholdPct.toStringAsFixed(2)}%.',
                                             );
                                           } finally {
                                             if (context.mounted) {
@@ -308,8 +455,14 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
                               onPressed: busy
                                   ? null
                                   : () async {
-                                      final link = 'clearate://share-rates?data=${Uri.encodeComponent(payload)}';
-                                      await shareService.shareText(link);
+                                      final link =
+                                          'clearate://share-rates?data=${Uri.encodeComponent(payload)}';
+                                      final marginText = snapshot == null
+                                          ? ''
+                                          : ' Retail margin +${snapshot.upperThresholdPct.toStringAsFixed(2)}% / -${snapshot.lowerThresholdPct.toStringAsFixed(2)}%.';
+                                      await shareService.shareText(
+                                        '$link$marginText',
+                                      );
                                     },
                               icon: const Icon(Icons.link),
                               label: const Text('Share Link'),
@@ -319,7 +472,9 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
                           SizedBox(
                             width: double.infinity,
                             child: TextButton(
-                              onPressed: busy ? null : () => Navigator.of(context).pop(),
+                              onPressed: busy
+                                  ? null
+                                  : () => Navigator.of(context).pop(),
                               child: const Text('Done'),
                             ),
                           ),
@@ -328,7 +483,8 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
                     );
 
                     return ConstrainedBox(
-                      constraints: BoxConstraints(maxHeight: MediaQuery.sizeOf(context).height * 0.86),
+                      constraints: BoxConstraints(
+                          maxHeight: MediaQuery.sizeOf(context).height * 0.86),
                       child: SingleChildScrollView(
                         child: card,
                       ),
@@ -341,7 +497,8 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
         );
       },
       transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final offset = Tween(begin: const Offset(0, 0.08), end: Offset.zero).animate(
+        final offset =
+            Tween(begin: const Offset(0, 0.08), end: Offset.zero).animate(
           CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
         );
         return FadeTransition(
@@ -355,7 +512,9 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
   Future<void> _showScannerDialog(BuildContext context) async {
     if (!(Platform.isAndroid || Platform.isIOS)) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Camera scanning is only available on Android and iPhone.')),
+        const SnackBar(
+            content: Text(
+                'Camera scanning is only available on Android and iPhone.')),
       );
       return;
     }
@@ -371,7 +530,8 @@ class _RatesScreenState extends State<RatesScreen> with SingleTickerProviderStat
         );
       },
       transitionBuilder: (context, animation, secondaryAnimation, child) {
-        final slide = Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
+        final slide =
+            Tween(begin: const Offset(0, 1), end: Offset.zero).animate(
           CurvedAnimation(parent: animation, curve: Curves.easeOutCubic),
         );
         return SlideTransition(
@@ -394,7 +554,8 @@ class _ScannerDialog extends StatefulWidget {
   State<_ScannerDialog> createState() => _ScannerDialogState();
 }
 
-class _ScannerDialogState extends State<_ScannerDialog> with SingleTickerProviderStateMixin {
+class _ScannerDialogState extends State<_ScannerDialog>
+    with SingleTickerProviderStateMixin {
   late final MobileScannerController _controller;
   late final AnimationController _lineController;
   bool _handled = false;
@@ -420,7 +581,9 @@ class _ScannerDialogState extends State<_ScannerDialog> with SingleTickerProvide
   }
 
   Future<void> _close() async {
-    await _controller.stop();
+    try {
+      await _controller.stop();
+    } catch (_) {}
     if (!mounted) return;
     Navigator.of(context).pop();
   }
@@ -435,35 +598,97 @@ class _ScannerDialogState extends State<_ScannerDialog> with SingleTickerProvide
       final imported = RateSnapshot.fromJson(
         (jsonDecode(raw) as Map).cast<String, Object?>(),
       ).copyWithFetchedAt(DateTime.now());
-      final current = widget.currentSnapshot;
-      if (current != null && current.serverTime != null) {
-        final importedIsOlder =
-            imported.serverTime == null || imported.serverTime!.isBefore(current.serverTime!);
-        if (importedIsOlder) {
-          _handled = true;
+      final importedAgeSource = imported.serverTime?.toLocal();
+      if (importedAgeSource == null) {
+        _handled = true;
+        try {
           await _controller.stop();
-          if (!mounted) return;
-          Navigator.of(context).pop();
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Your rates are already up to date. Show your QR code to the other person instead.'),
+        } catch (_) {}
+        if (!mounted) return;
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text(
+              'This QR code does not include a server timestamp yet. Ask the other user to refresh first.',
             ),
-          );
-          return;
+          ),
+        );
+        return;
+      }
+      final importedAge = DateTime.now().difference(importedAgeSource);
+      if (importedAge >= const Duration(hours: 48)) {
+        _handled = true;
+        try {
+          await _controller.stop();
+        } catch (_) {}
+        if (!mounted) return;
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            behavior: SnackBarBehavior.floating,
+            content: Text(
+              'Maybe these rates are 48 hours old. Connect to get today\'s rates.',
+            ),
+          ),
+        );
+        return;
+      }
+      final current = widget.currentSnapshot;
+      if (current != null) {
+        final currentStamp = current.serverTime?.toLocal();
+        final importedStamp = imported.serverTime?.toLocal();
+        if (currentStamp == null) {
+          // Current snapshot is a reference fallback; accept newer live data.
+        } else {
+          final importedIsOlderOrEqual =
+              importedStamp!.isBefore(currentStamp) ||
+                  importedStamp.isAtSameMomentAs(currentStamp);
+          if (importedIsOlderOrEqual) {
+            _handled = true;
+            try {
+              await _controller.stop();
+            } catch (_) {}
+            if (!mounted) return;
+            Navigator.of(context).pop();
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                behavior: SnackBarBehavior.floating,
+                content: Text(
+                  'You already have the latest rates. Ask the other user to scan your rates instead.',
+                ),
+              ),
+            );
+            return;
+          }
         }
       }
 
       _handled = true;
-      await AppScope.of(context).ratesController.importSnapshot(imported);
+      final updated =
+          await AppScope.of(context).ratesController.importSnapshot(imported);
       if (!mounted) return;
-      await _controller.stop();
+      try {
+        await _controller.stop();
+      } catch (_) {}
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Rates updated from nearby device.')),
+        SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            updated
+                ? 'Rates updated from nearby device.'
+                : 'You already have the latest rates. Ask the other user to scan your rates instead.',
+          ),
+        ),
       );
     } catch (_) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("This doesn't look like a Clearate rate code. Try again.")),
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content:
+              Text("This doesn't look like a Clearate rate code. Try again."),
+        ),
       );
     }
   }
@@ -483,7 +708,8 @@ class _ScannerDialogState extends State<_ScannerDialog> with SingleTickerProvide
                   TextButton.icon(
                     onPressed: _close,
                     icon: const Icon(Icons.arrow_back, color: Colors.white),
-                    label: const Text('Cancel', style: TextStyle(color: Colors.white)),
+                    label: const Text('Cancel',
+                        style: TextStyle(color: Colors.white)),
                   ),
                   const Spacer(),
                   Text(
@@ -532,7 +758,8 @@ class _ScannerDialogState extends State<_ScannerDialog> with SingleTickerProvide
                     bottom: 118,
                     child: Text(
                       'Point your camera at another Clearate user\'s QR code.',
-                      style: theme.textTheme.bodyMd.copyWith(color: Colors.white),
+                      style:
+                          theme.textTheme.bodyMd.copyWith(color: Colors.white),
                       textAlign: TextAlign.center,
                     ),
                   ),
@@ -612,43 +839,84 @@ class _ScannerFrame extends StatelessWidget {
   }
 }
 
-class _LivePill extends StatelessWidget {
-  const _LivePill({
+class _RatesTimestampBar extends StatelessWidget {
+  const _RatesTimestampBar({
     required this.snapshot,
-    required this.isUpdating,
+    required this.age,
   });
 
-  final RateSnapshot? snapshot;
-  final bool isUpdating;
+  final RateSnapshot snapshot;
+  final Duration? age;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 150),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+    final currentAge = age;
+    final dotColor = currentAge == null
+        ? const Color(0xFFF5B301)
+        : currentAge < const Duration(hours: 12)
+            ? const Color(0xFF1F9D4D)
+            : currentAge < const Duration(hours: 24)
+                ? const Color(0xFFF5B301)
+                : const Color(0xFFE53935);
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: theme.colorScheme.secondaryContainer,
-        borderRadius: BorderRadius.circular(999),
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Row(
-        mainAxisSize: MainAxisSize.min,
         children: [
-          if (snapshot != null && snapshot!.serverTime == null) ...[
-            Icon(Icons.info_outline, size: 16, color: theme.colorScheme.onSecondaryContainer),
-            const SizedBox(width: 8),
-          ] else ...[
-            _PillDot(updating: isUpdating),
-            const SizedBox(width: 8),
-          ],
-          Text(
-            snapshot == null
-                ? 'Updating rates...'
-                : snapshot!.serverTime == null
-                    ? "Showing reference rates — connect to get today's live rates"
-                    : 'Live Rates Updated: ${formatHonestUpdated(snapshot!.fetchedAt)}',
-            style: theme.textTheme.labelMd.copyWith(
-              color: theme.colorScheme.onSecondaryContainer,
+          Container(
+            width: 10,
+            height: 10,
+            decoration: BoxDecoration(
+              color: dotColor,
+              shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: dotColor.withOpacity(0.25),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  snapshot.meta?.rateDate?.isNotEmpty == true
+                      ? formatRateDateLabel(snapshot.meta!.rateDate)
+                      : (snapshot.serverTime != null
+                          ? formatHonestUpdated(snapshot.serverTime!)
+                          : 'Reference rates'),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMd.copyWith(
+                    color: theme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  currentAge == null
+                      ? 'Showing reference rates'
+                      : currentAge < const Duration(hours: 12)
+                          ? 'Fresh rates'
+                          : currentAge < const Duration(hours: 24)
+                              ? 'Rates are getting old'
+                              : 'Rates are older than 24 hours',
+                  style: theme.textTheme.bodyMd.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -657,104 +925,130 @@ class _LivePill extends StatelessWidget {
   }
 }
 
-class _PillDot extends StatefulWidget {
-  const _PillDot({required this.updating});
-
-  final bool updating;
-
-  @override
-  State<_PillDot> createState() => _PillDotState();
-}
-
-class _PillDotState extends State<_PillDot> with SingleTickerProviderStateMixin {
-  late final AnimationController _controller;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1200),
-    )..repeat();
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    if (!widget.updating) {
-      return Container(
-        width: 12,
-        height: 12,
-        decoration: const BoxDecoration(color: Colors.black, shape: BoxShape.circle),
-      );
-    }
-
-    return AnimatedBuilder(
-      animation: _controller,
-      builder: (context, _) {
-        final scale = 0.8 + (_controller.value * 0.4);
-        return Container(
-          width: 12,
-          height: 12,
-          alignment: Alignment.center,
-          child: Transform.scale(
-            scale: scale,
-            child: Container(
-              width: 12,
-              height: 12,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.black.withOpacity(1 - (_controller.value * 0.35)),
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class _WarningBanner extends StatelessWidget {
-  const _WarningBanner({
-    required this.text,
-    required this.onRetry,
+class _StaleRatesBanner extends StatelessWidget {
+  const _StaleRatesBanner({
+    required this.onRefresh,
+    required this.onDismiss,
   });
 
-  final String text;
-  final Future<void> Function() onRetry;
+  final Future<void> Function() onRefresh;
+  final Future<void> Function() onDismiss;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: const Color(0xFFFFF3CD),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: const Color(0xFFE0A800).withOpacity(0.4)),
+        color: const Color(0xFFFFF5EA),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFFFC88A)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x1A000000),
+            blurRadius: 12,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.info_outline, color: Color(0xFF6B4E00)),
+          const Padding(
+            padding: EdgeInsets.only(top: 1),
+            child: Icon(Icons.notifications_active_outlined,
+                color: Color(0xFF9A5A00)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Warm reminder',
+                  style: theme.textTheme.labelMd.copyWith(
+                    color: const Color(0xFF7A4300),
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'These rates are more than 24 hours old. Refresh or scan to get the latest update.',
+                  style: theme.textTheme.bodyMd.copyWith(
+                    color: const Color(0xFF6D3A00),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: 10,
+                  runSpacing: 10,
+                  children: [
+                    FilledButton(
+                      onPressed: () async {
+                        await onRefresh();
+                      },
+                      style: FilledButton.styleFrom(
+                        backgroundColor: Colors.black,
+                        foregroundColor: Colors.white,
+                      ),
+                      child: const Text('Refresh now'),
+                    ),
+                    TextButton(
+                      onPressed: () async {
+                        await onDismiss();
+                      },
+                      child: const Text('Dismiss'),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: () async {
+              await onDismiss();
+            },
+            icon: const Icon(Icons.close),
+            color: const Color(0xFF7A4300),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnomalyBanner extends StatelessWidget {
+  const _AnomalyBanner({
+    required this.text,
+  });
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: const Color(0xFFFFE7E4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE57373)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.warning_amber_rounded, color: Color(0xFFB71C1C)),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               text,
               style: theme.textTheme.bodyMd.copyWith(
-                color: const Color(0xFF4E3A00),
+                color: const Color(0xFF7A1515),
+                fontWeight: FontWeight.w600,
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-          TextButton(
-            onPressed: onRetry,
-            child: const Text('Retry'),
           ),
         ],
       ),
@@ -794,6 +1088,11 @@ class _RatesActionBar extends StatelessWidget {
         Expanded(
           child: OutlinedButton.icon(
             onPressed: scanEnabled ? onScan : null,
+            style: OutlinedButton.styleFrom(
+              backgroundColor: const Color(0xFFF7F8FA),
+              foregroundColor: Colors.black,
+              side: const BorderSide(color: Color(0xFFD8DDE6)),
+            ),
             icon: const Icon(Icons.qr_code_scanner),
             label: const Text('Scan'),
           ),
@@ -830,18 +1129,26 @@ class _RateCardState extends State<_RateCard> {
     final displayTo = _reversed ? widget.from : widget.to;
     final rate = widget.snapshot.rate(displayFrom, displayTo);
     final inverse = widget.snapshot.rate(displayTo, displayFrom);
-    final prevRate = widget.previous == null ? null : widget.previous!.rate(displayFrom, displayTo);
-    final delta = (prevRate == null || prevRate <= 0) ? null : ((rate - prevRate) / prevRate) * 100.0;
-    final direction = delta == null ? 0 : (delta > 0 ? 1 : -1);
-    final deltaText = delta == null
-        ? 'Stable'
+    final prevRate = widget.previous == null
+        ? null
+        : widget.previous!.rate(displayFrom, displayTo);
+    final computedDelta = (prevRate == null || prevRate <= 0)
+        ? null
+        : ((rate - prevRate) / prevRate) * 100.0;
+    final delta = computedDelta ?? widget.snapshot.changePct;
+    final isFlat = delta == null || delta.abs() < 0.05;
+    final direction = isFlat ? 0 : (delta > 0 ? 1 : -1);
+    final deltaText = isFlat
+        ? 'Normal'
         : '${delta >= 0 ? '+' : '-'}${delta.abs().toStringAsFixed(1)}% vs yesterday';
-    final deltaColor = delta == null
-        ? theme.colorScheme.onSurfaceVariant
+    final deltaColor = isFlat
+        ? const Color(0xFF6B7280)
         : (delta >= 0 ? const Color(0xFF1B5E20) : const Color(0xFFB71C1C));
-    final lastChecked = widget.snapshot.serverTime == null
-        ? 'Reference rates'
-        : 'Updated: ${formatHonestUpdated(widget.snapshot.fetchedAt)}';
+    final lastChecked = widget.snapshot.meta?.rateDate?.isNotEmpty == true
+        ? formatRateDateLabel(widget.snapshot.meta!.rateDate)
+        : (widget.snapshot.serverTime != null
+            ? formatHonestUpdated(widget.snapshot.serverTime!)
+            : formatLocalSavedRateLabel(widget.snapshot.fetchedAt));
 
     return Container(
       decoration: BoxDecoration(
@@ -868,7 +1175,8 @@ class _RateCardState extends State<_RateCard> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: theme.colorScheme.surfaceContainer,
                         borderRadius: BorderRadius.circular(6),
@@ -900,11 +1208,15 @@ class _RateCardState extends State<_RateCard> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(
-                child: Text(
-                  '1 ${displayFrom.uiLabel} = ${formatRate(rate)} ${displayTo.uiLabel}',
-                  style: theme.textTheme.statLg.copyWith(
-                    color: theme.colorScheme.primary,
-                    height: 1.1,
+                child: FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    '1 ${displayFrom.uiLabel} = ${formatRate(rate)} ${displayTo.uiLabel}',
+                    style: theme.textTheme.statLg.copyWith(
+                      color: theme.colorScheme.primary,
+                      height: 1.1,
+                    ),
                   ),
                 ),
               ),
@@ -933,10 +1245,14 @@ class _RateCardState extends State<_RateCard> {
             ],
           ),
           const SizedBox(height: 6),
-          Text(
-            '1 ${displayTo.uiLabel} = ${formatRate(inverse)} ${displayFrom.uiLabel}',
-            style: theme.textTheme.bodyMd.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '1 ${displayTo.uiLabel} = ${formatRate(inverse)} ${displayFrom.uiLabel}',
+              style: theme.textTheme.bodyMd.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
           ),
           const SizedBox(height: 14),
@@ -945,7 +1261,7 @@ class _RateCardState extends State<_RateCard> {
           Row(
             children: [
               Icon(
-                delta == null
+                isFlat
                     ? Icons.horizontal_rule
                     : (delta >= 0 ? Icons.trending_up : Icons.trending_down),
                 size: 18,
@@ -1048,7 +1364,16 @@ class _SparklinePainter extends CustomPainter {
     }
 
     canvas.drawPath(path, paint);
-    canvas.drawCircle(Offset(w, direction == 0 ? h * 0.42 : direction > 0 ? h * 0.20 : h * 0.76), 3.6, dotPaint);
+    canvas.drawCircle(
+        Offset(
+            w,
+            direction == 0
+                ? h * 0.42
+                : direction > 0
+                    ? h * 0.20
+                    : h * 0.76),
+        3.6,
+        dotPaint);
   }
 
   @override
@@ -1200,11 +1525,13 @@ class _NoRatesState extends StatelessWidget {
             child: Stack(
               alignment: Alignment.center,
               children: [
-                Icon(Icons.phone_iphone, size: 38, color: theme.colorScheme.onSurfaceVariant),
+                Icon(Icons.phone_iphone,
+                    size: 38, color: theme.colorScheme.onSurfaceVariant),
                 Positioned(
                   right: 16,
                   top: 20,
-                  child: Icon(Icons.wifi_off, size: 20, color: theme.colorScheme.onSurfaceVariant),
+                  child: Icon(Icons.wifi_off,
+                      size: 20, color: theme.colorScheme.onSurfaceVariant),
                 ),
               ],
             ),
@@ -1212,12 +1539,14 @@ class _NoRatesState extends StatelessWidget {
           const SizedBox(height: 16),
           Text(
             'No rates available yet.',
-            style: theme.textTheme.headlineMd.copyWith(fontWeight: FontWeight.w700),
+            style: theme.textTheme.headlineMd
+                .copyWith(fontWeight: FontWeight.w700),
           ),
           const SizedBox(height: 8),
           Text(
             "Connect to the internet once to load today's rates. After that the app works offline.",
-            style: theme.textTheme.bodyMd.copyWith(color: theme.colorScheme.onSurfaceVariant),
+            style: theme.textTheme.bodyMd
+                .copyWith(color: theme.colorScheme.onSurfaceVariant),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
@@ -1255,16 +1584,25 @@ class _Corner extends StatelessWidget {
         height: 36,
         decoration: BoxDecoration(
           border: Border(
-            top: top ? const BorderSide(color: Colors.white, width: 4) : BorderSide.none,
-            bottom: top ? BorderSide.none : const BorderSide(color: Colors.white, width: 4),
-            left: left ? const BorderSide(color: Colors.white, width: 4) : BorderSide.none,
-            right: left ? BorderSide.none : const BorderSide(color: Colors.white, width: 4),
+            top: top
+                ? const BorderSide(color: Colors.white, width: 4)
+                : BorderSide.none,
+            bottom: top
+                ? BorderSide.none
+                : const BorderSide(color: Colors.white, width: 4),
+            left: left
+                ? const BorderSide(color: Colors.white, width: 4)
+                : BorderSide.none,
+            right: left
+                ? BorderSide.none
+                : const BorderSide(color: Colors.white, width: 4),
           ),
           borderRadius: BorderRadius.only(
             topLeft: top && left ? const Radius.circular(12) : Radius.zero,
             topRight: top && !left ? const Radius.circular(12) : Radius.zero,
             bottomLeft: !top && left ? const Radius.circular(12) : Radius.zero,
-            bottomRight: !top && !left ? const Radius.circular(12) : Radius.zero,
+            bottomRight:
+                !top && !left ? const Radius.circular(12) : Radius.zero,
           ),
         ),
       ),
@@ -1323,5 +1661,6 @@ class _PseudoQrPainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant _PseudoQrPainter oldDelegate) => oldDelegate.data != data;
+  bool shouldRepaint(covariant _PseudoQrPainter oldDelegate) =>
+      oldDelegate.data != data;
 }

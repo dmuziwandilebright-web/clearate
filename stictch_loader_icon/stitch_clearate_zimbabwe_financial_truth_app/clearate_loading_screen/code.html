@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Clearate | Financial Truth</title>
+<!-- Tailwind CSS -->
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<!-- Google Fonts: Public Sans for consistent Typography as per Design System -->
+<link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;600;700&amp;display=swap" rel="stylesheet"/>
+<!-- Material Symbols for icon integrity -->
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+    tailwind.config = {
+      darkMode: "class",
+      theme: {
+        extend: {
+          "colors": {
+                  "secondary-fixed-dim": "#b7c8e1",
+                  "on-secondary": "#ffffff",
+                  "surface-container": "#eceef0",
+                  "on-secondary-fixed-variant": "#38485d",
+                  "on-secondary-fixed": "#0b1c30",
+                  "surface-variant": "#e0e3e5",
+                  "primary-container": "#131b2e",
+                  "on-tertiary-container": "#98805d",
+                  "on-surface": "#191c1e",
+                  "on-error": "#ffffff",
+                  "surface-container-low": "#f2f4f6",
+                  "on-background": "#191c1e",
+                  "inverse-surface": "#2d3133",
+                  "surface-dim": "#d8dadc",
+                  "on-tertiary-fixed-variant": "#574425",
+                  "on-primary-container": "#7c839b",
+                  "secondary-fixed": "#d3e4fe",
+                  "surface-container-high": "#e6e8ea",
+                  "primary": "#000000",
+                  "surface-bright": "#f7f9fb",
+                  "outline-variant": "#c6c6cd",
+                  "surface": "#f7f9fb",
+                  "secondary-container": "#d0e1fb",
+                  "inverse-on-surface": "#eff1f3",
+                  "outline": "#76777d",
+                  "on-tertiary-fixed": "#271901",
+                  "on-primary-fixed": "#131b2e",
+                  "surface-tint": "#565e74",
+                  "primary-fixed": "#dae2fd",
+                  "error-container": "#ffdad6",
+                  "primary-fixed-dim": "#bec6e0",
+                  "on-primary-fixed-variant": "#3f465c",
+                  "tertiary-container": "#271901",
+                  "secondary": "#505f76",
+                  "on-tertiary": "#ffffff",
+                  "on-primary": "#ffffff",
+                  "background": "#f7f9fb",
+                  "error": "#ba1a1a",
+                  "tertiary": "#000000",
+                  "on-surface-variant": "#45464d",
+                  "on-secondary-container": "#54647a",
+                  "tertiary-fixed-dim": "#dec29a",
+                  "surface-container-highest": "#e0e3e5",
+                  "inverse-primary": "#bec6e0",
+                  "on-error-container": "#93000a",
+                  "tertiary-fixed": "#fcdeb5",
+                  "surface-container-lowest": "#ffffff"
+          },
+          "borderRadius": {
+                  "DEFAULT": "0.25rem",
+                  "lg": "0.5rem",
+                  "xl": "0.75rem",
+                  "full": "9999px"
+          },
+          "spacing": {
+                  "xl": "32px",
+                  "xs": "4px",
+                  "touch-target": "48px",
+                  "sm": "12px",
+                  "container-margin": "16px",
+                  "base": "8px",
+                  "lg": "24px",
+                  "md": "16px"
+          },
+          "fontFamily": {
+                  "headline-lg-mobile": ["Public Sans"],
+                  "body-md": ["Public Sans"],
+                  "body-lg": ["Public Sans"],
+                  "stat-lg": ["Public Sans"],
+                  "label-md": ["Public Sans"],
+                  "headline-md": ["Public Sans"],
+                  "headline-lg": ["Public Sans"],
+                  "display-lg": ["Public Sans"]
+          },
+          "fontSize": {
+                  "headline-lg-mobile": ["24px", {"lineHeight": "32px", "fontWeight": "700"}],
+                  "body-md": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                  "body-lg": ["18px", {"lineHeight": "28px", "fontWeight": "400"}],
+                  "stat-lg": ["36px", {"lineHeight": "44px", "letterSpacing": "-0.02em", "fontWeight": "700"}],
+                  "label-md": ["14px", {"lineHeight": "20px", "letterSpacing": "0.05em", "fontWeight": "600"}],
+                  "headline-md": ["20px", {"lineHeight": "28px", "fontWeight": "600"}],
+                  "headline-lg": ["32px", {"lineHeight": "40px", "letterSpacing": "-0.01em", "fontWeight": "700"}],
+                  "display-lg": ["40px", {"lineHeight": "48px", "letterSpacing": "-0.02em", "fontWeight": "700"}]
+          }
+        },
+      },
+    }
+  </script>
+<style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden; /* Prevent scrolling for the splash screen */
+      background-color: #ffffff;
+      font-family: 'Public Sans', sans-serif;
+    }
+
+    .splash-container {
+      width: 360px;
+      height: 800px;
+      margin: 0 auto;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: #ffffff;
+    }
+
+    .logo-pulse {
+      animation: pulse 2.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.95;
+        transform: scale(0.98);
+      }
+    }
+
+    .fade-in-bottom {
+      animation: fadeInUp 1s ease-out forwards;
+    }
+
+    @keyframes fadeInUp {
+      from {
+        opacity: 0;
+        transform: translateY(10px);
+      }
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
+    }
+
+    .material-symbols-outlined {
+      font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+    }
+  </style>
+</head>
+<body class="flex items-center justify-center min-h-screen bg-surface-container-lowest">
+<!-- Mobile Splash Canvas (360x800) -->
+<main class="splash-container shadow-2xl overflow-hidden bg-white">
+<!-- Atmospheric subtle gradient to add "Financial Truth" depth without heavy shadows -->
+<div class="absolute inset-0 bg-gradient-to-b from-white via-white to-surface-container-low opacity-30 pointer-events-none"></div>
+<!-- Central Branding Anchor -->
+<div class="relative z-10 flex flex-col items-center justify-center px-lg">
+<div class="logo-pulse mb-md">
+<img alt="Clearate Logo" class="w-48 h-auto object-contain" src="https://lh3.googleusercontent.com/aida/AP1WRLuKDg5sjDj5-utyAq2c5G5hTwxbMXR6bmHlxT228VfdPrrSbVpyGVW_7PSqGLPZai-inbPD7kZRcYclz8IutjvVd81JlXnQTTF5zwWQLwAAYXkfIL9By4cfNx2LYMgXHi4qiVRBSWFZ6ojcJJ4Qd2XgoLzt25Lp7Js2-O8RjNMbWD-kjCWQ7XHs9GxPXO6TvT2Li_VJ56wtHf2FEyCeMk3aNet3jZH-RkL7uC6fwmvD5jLiYpX5Emahl7U"/>
+</div>
+<!-- Loading Indicator: Subtle and corporate -->
+<div class="mt-xl flex items-center gap-xs">
+<div class="w-2 h-2 rounded-full bg-primary animate-[bounce_1s_infinite_100ms]"></div>
+<div class="w-2 h-2 rounded-full bg-primary animate-[bounce_1s_infinite_200ms]"></div>
+<div class="w-2 h-2 rounded-full bg-primary animate-[bounce_1s_infinite_300ms]"></div>
+</div>
+</div>
+<!-- Company Trademark Footer -->
+<footer class="absolute bottom-0 w-full flex flex-col items-center justify-center pb-xl px-container-margin fade-in-bottom">
+<!-- Minimalist separator line as per Design System "Low-Contrast Outlines" -->
+<div class="w-12 h-px bg-outline-variant mb-md opacity-50"></div>
+<p class="font-label-md text-label-md text-on-surface-variant text-center opacity-80">
+        © 2024 Clearate Financial. All rights reserved.
+      </p>
+<!-- Shared Component Identity String Verification -->
+<div class="mt-xs flex items-center text-primary opacity-60">
+<span class="material-symbols-outlined text-[18px] mr-xs">account_balance</span>
+<span class="font-label-md text-[12px] uppercase tracking-widest font-bold">Secure Access</span>
+</div>
+</footer>
+</main>
+<script>
+    // Lightweight atmospheric micro-interaction
+    document.addEventListener('DOMContentLoaded', () => {
+      const footer = document.querySelector('footer');
+      // Gentle delayed entrance for the footer text
+      setTimeout(() => {
+        footer.style.opacity = '1';
+      }, 500);
+    });
+  </script>
+</body></html>

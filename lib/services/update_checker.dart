@@ -10,15 +10,18 @@ class UpdateInfo {
     required this.latestVersion,
     required this.apkUrl,
     required this.releaseNotes,
+    required this.reportFeatureActive,
   });
 
   final String latestVersion;
   final Uri apkUrl;
   final String releaseNotes;
+  final bool reportFeatureActive;
 }
 
 class UpdateChecker {
-  UpdateChecker({http.Client? httpClient}) : _http = httpClient ?? http.Client();
+  UpdateChecker({http.Client? httpClient})
+      : _http = httpClient ?? http.Client();
 
   final http.Client _http;
 
@@ -39,7 +42,9 @@ class UpdateChecker {
       latestVersion: (map['version'] as String).trim(),
       apkUrl: Uri.parse((map['apk_url'] as String).trim()),
       releaseNotes: ((map['notes'] as String?) ?? '').trim(),
+      reportFeatureActive: map['report_feature_active'] is bool
+          ? map['report_feature_active'] as bool
+          : false,
     );
   }
 }
-
