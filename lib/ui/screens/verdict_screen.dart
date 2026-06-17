@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../app/app_scope.dart';
+import '../../config/remote_flags.dart';
 import '../../domain/complaint_report.dart';
 import '../../domain/currency.dart';
 import '../../domain/rate_snapshot.dart';
@@ -175,7 +177,19 @@ class _VerdictScreenState extends State<VerdictScreen> {
   Future<void> _openComplaintSheet() async {
     final result = _result;
     if (result == null) return;
-    final snapshot = AppScope.of(context).ratesController.state.snapshot;
+    final scope = AppScope.of(context);
+    if (!scope.remoteFlagsController.state.reportFeatureActive) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          behavior: SnackBarBehavior.floating,
+          content: Text(
+            'Reporting is almost ready. Please try again once reporting is active.',
+          ),
+        ),
+      );
+      return;
+    }
+    final snapshot = scope.ratesController.state.snapshot;
 
     final boundary = _shareKey.currentContext?.findRenderObject();
     if (boundary is! RenderRepaintBoundary) return;
@@ -184,6 +198,7 @@ class _VerdictScreenState extends State<VerdictScreen> {
       boundary: boundary,
       fileNameBase: 'clearate_complaint_card',
     );
+    final cardBase64 = base64Encode(await cardFile.readAsBytes());
 
     if (!mounted) return;
 
@@ -199,7 +214,7 @@ class _VerdictScreenState extends State<VerdictScreen> {
           from: _from,
           to: _to,
           transactionType: _reportType,
-          verdictCardPath: cardFile.path,
+          verdictCardBase64: cardBase64,
           priceKnown: double.tryParse(_priceKnownController.text.trim()) ?? 0,
           priceQuoted: double.tryParse(_priceQuotedController.text.trim()) ?? 0,
         );
@@ -992,23 +1007,47 @@ class _VerdictCard extends StatelessWidget {
                 ),
                 if (result.kind != VerdictKind.fair) ...[
                   const SizedBox(height: 10),
-                  SizedBox(
-                    height: 48,
-                    width: double.infinity,
-                    child: OutlinedButton.icon(
-                      onPressed: onReport,
-                      style: OutlinedButton.styleFrom(
-                        backgroundColor: Colors.white,
-                        foregroundColor: Colors.black,
-                        side:
-                            BorderSide(color: theme.colorScheme.outlineVariant),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
+                  AnimatedBuilder(
+                    animation: AppScope.of(context).remoteFlagsController,
+                    builder: (context, _) {
+                      final reportActive = AppScope.of(context)
+                          .remoteFlagsController
+                          .state
+                          .reportFeatureActive;
+                      return SizedBox(
+                        height: 48,
+                        width: double.infinity,
+                        child: FilledButton.icon(
+                          onPressed: () {
+                            if (reportActive) {
+                              onReport();
+                            } else {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  behavior: SnackBarBehavior.floating,
+                                  content: Text(
+                                    'This feature is coming soon .. Britek is still looking to make partnership with the Consumer Protection Commission',
+                                  ),
+                                ),
+                              );
+                            }
+                          },
+                          style: FilledButton.styleFrom(
+                            backgroundColor: Colors.black,
+                            foregroundColor: Colors.white,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(14),
+                            ),
+                          ),
+                          icon: const Icon(Icons.flag_outlined),
+                          label: Text(
+                            result.kind == VerdictKind.overcharged
+                                ? 'Report Overcharge'
+                                : 'Report Unfair Offer',
+                          ),
                         ),
-                      ),
-                      icon: const Icon(Icons.flag_outlined),
-                      label: const Text('Send Report'),
-                    ),
+                      );
+                    },
                   ),
                 ],
               ],
@@ -1027,7 +1066,7 @@ class _ComplaintSheet extends StatefulWidget {
     required this.from,
     required this.to,
     required this.transactionType,
-    required this.verdictCardPath,
+    required this.verdictCardBase64,
     required this.priceKnown,
     required this.priceQuoted,
   });
@@ -1037,7 +1076,7 @@ class _ComplaintSheet extends StatefulWidget {
   final Currency from;
   final Currency to;
   final ComplaintTransactionType transactionType;
-  final String verdictCardPath;
+  final String verdictCardBase64;
   final double priceKnown;
   final double priceQuoted;
 
@@ -1052,17 +1091,27 @@ class _ComplaintSheetState extends State<_ComplaintSheet> {
   final _businessController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _itemController = TextEditingController();
+  final _witnessPhoneController = TextEditingController();
   _ComplaintStage _stage = _ComplaintStage.form;
+  late ComplaintTransactionType _transactionType;
   String? _town;
   String? _exchangeLocationType;
+  bool _witnessConsent = false;
   bool _busy = false;
   String? _referenceNumber;
+
+  @override
+  void initState() {
+    super.initState();
+    _transactionType = widget.transactionType;
+  }
 
   @override
   void dispose() {
     _businessController.dispose();
     _descriptionController.dispose();
     _itemController.dispose();
+    _witnessPhoneController.dispose();
     super.dispose();
   }
 
@@ -1078,7 +1127,7 @@ class _ComplaintSheetState extends State<_ComplaintSheet> {
       );
       return;
     }
-    if (widget.transactionType == ComplaintTransactionType.currencyExchange &&
+    if (_transactionType == ComplaintTransactionType.currencyExchange &&
         (_exchangeLocationType == null || _exchangeLocationType!.isEmpty)) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -1090,20 +1139,19 @@ class _ComplaintSheetState extends State<_ComplaintSheet> {
     }
 
     setState(() => _busy = true);
-    final reference =
-        'CPC-${DateTime.now().year}-${10000 + DateTime.now().millisecondsSinceEpoch.remainder(90000)}';
+    final submittedAt = DateTime.now();
+    final reference = _generateComplaintReference(submittedAt);
     final snapshot = widget.snapshot;
     final verdictText = switch (widget.result.kind) {
       VerdictKind.fair => 'fair',
       VerdictKind.overcharged => 'overcharged',
       VerdictKind.undervalued => 'undervalued',
     };
-    final submittedAt = DateTime.now();
     final packageInfo = await PackageInfo.fromPlatform();
     final report = ComplaintReport(
       referenceNumber: reference,
       verdict: verdictText,
-      transactionType: widget.transactionType,
+      transactionType: _transactionType,
       fromCurrency: widget.from.uiLabel,
       toCurrency: widget.to.uiLabel,
       priceKnown: widget.priceKnown,
@@ -1128,25 +1176,30 @@ class _ComplaintSheetState extends State<_ComplaintSheet> {
       appVersion: packageInfo.version,
       status: 'submitted',
       submittedAt: submittedAt,
-      verdictCardUrl: widget.verdictCardPath,
+      verdictCardBase64: widget.verdictCardBase64,
       town: _town!,
       businessName: _businessController.text.trim().isEmpty
           ? null
           : _businessController.text.trim(),
-      itemName: widget.transactionType == ComplaintTransactionType.goodsPurchase
+      itemName: _transactionType == ComplaintTransactionType.goodsPurchase
           ? (_itemController.text.trim().isEmpty
               ? null
               : _itemController.text.trim())
           : null,
       exchangeLocationType:
-          widget.transactionType == ComplaintTransactionType.currencyExchange
+          _transactionType == ComplaintTransactionType.currencyExchange
               ? _exchangeLocationType
               : null,
-      description:
-          widget.transactionType == ComplaintTransactionType.goodsPurchase
-              ? (_descriptionController.text.trim().isEmpty
-                  ? null
-                  : _descriptionController.text.trim())
+      description: _transactionType == ComplaintTransactionType.goodsPurchase
+          ? (_descriptionController.text.trim().isEmpty
+              ? null
+              : _descriptionController.text.trim())
+          : null,
+      resolutionNote: null,
+      witnessConsent: _witnessConsent,
+      witnessPhone:
+          _witnessConsent && _witnessPhoneController.text.trim().isNotEmpty
+              ? _witnessPhoneController.text.trim()
               : null,
     );
 
@@ -1157,7 +1210,7 @@ class _ComplaintSheetState extends State<_ComplaintSheet> {
         parameters: {
           'verdict': verdictText,
           'town': _town!,
-          'type': widget.transactionType.apiValue,
+          'type': _transactionType.apiValue,
         },
       );
       if (!mounted) return;
@@ -1178,245 +1231,362 @@ class _ComplaintSheetState extends State<_ComplaintSheet> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final scope = AppScope.of(context);
 
-    return AnimatedSwitcher(
-      duration: const Duration(milliseconds: 260),
-      child: _stage == _ComplaintStage.confirmation
-          ? _ComplaintConfirmationView(
-              key: const ValueKey('confirmation'),
-              referenceNumber: _referenceNumber ?? 'CPC-0000-00000',
-              onCopy: () async {
-                await Clipboard.setData(
-                  ClipboardData(text: _referenceNumber ?? ''),
-                );
-                if (!mounted) return;
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Reference copied.')),
-                );
-              },
-              onDone: () => Navigator.of(context).pop(),
-            )
-          : DraggableScrollableSheet(
-              key: const ValueKey('form'),
-              expand: false,
-              initialChildSize: 0.92,
-              minChildSize: 0.72,
-              maxChildSize: 0.96,
-              builder: (context, scrollController) {
-                final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
-                return AnimatedPadding(
-                  duration: const Duration(milliseconds: 180),
-                  curve: Curves.easeOut,
-                  padding: EdgeInsets.only(bottom: bottomInset),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: theme.colorScheme.surface,
-                      borderRadius: const BorderRadius.vertical(
-                        top: Radius.circular(28),
-                      ),
-                    ),
-                    child: SafeArea(
-                      top: false,
-                      child: Column(
-                        children: [
-                          _SheetHandle(color: theme.colorScheme.outlineVariant),
-                          Expanded(
-                            child: Form(
-                              key: _formKey,
-                              child: ListView(
-                                controller: scrollController,
-                                keyboardDismissBehavior:
-                                    ScrollViewKeyboardDismissBehavior.onDrag,
-                                padding: EdgeInsets.fromLTRB(
-                                  18,
-                                  0,
-                                  18,
-                                  18 + bottomInset,
-                                ),
-                                children: [
-                                  Row(
+    return AnimatedBuilder(
+      animation: scope.remoteFlagsController,
+      builder: (context, _) {
+        final liveFlags = scope.remoteFlagsController.state;
+        return AnimatedSwitcher(
+          duration: const Duration(milliseconds: 260),
+          child: _stage == _ComplaintStage.confirmation
+              ? _ComplaintConfirmationView(
+                  key: const ValueKey('confirmation'),
+                  referenceNumber: _referenceNumber ?? 'CPC-0000-00000',
+                  disclaimerText: liveFlags.complaintDisclaimer.isNotEmpty
+                      ? liveFlags.complaintDisclaimer
+                      : scope.releaseInfo?.complaintDisclaimer ??
+                          'Your report has been recorded. Clearate is working to establish a formal partnership with Zimbabwe\'s Consumer Protection Commission.',
+                  onCopy: () async {
+                    await Clipboard.setData(
+                      ClipboardData(text: _referenceNumber ?? ''),
+                    );
+                    if (!mounted) return;
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('Reference copied.')),
+                    );
+                  },
+                  onDone: () => Navigator.of(context).pop(),
+                )
+              : DraggableScrollableSheet(
+                  key: const ValueKey('form'),
+                  expand: false,
+                  initialChildSize: 0.92,
+                  minChildSize: 0.72,
+                  maxChildSize: 0.96,
+                  builder: (context, scrollController) {
+                    final bottomInset = MediaQuery.viewInsetsOf(context).bottom;
+                    return AnimatedPadding(
+                      duration: const Duration(milliseconds: 180),
+                      curve: Curves.easeOut,
+                      padding: EdgeInsets.only(bottom: bottomInset),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface,
+                          borderRadius: const BorderRadius.vertical(
+                            top: Radius.circular(28),
+                          ),
+                        ),
+                        child: SafeArea(
+                          top: false,
+                          child: Column(
+                            children: [
+                              _SheetHandle(
+                                color: theme.colorScheme.outlineVariant,
+                              ),
+                              Expanded(
+                                child: Form(
+                                  key: _formKey,
+                                  child: ListView(
+                                    controller: scrollController,
+                                    keyboardDismissBehavior:
+                                        ScrollViewKeyboardDismissBehavior
+                                            .onDrag,
+                                    padding: () {
+                                      final screenWidth = MediaQuery.sizeOf(context).width;
+                                      final horizontalPadding = screenWidth < 360
+                                          ? 14.0
+                                          : (screenWidth > 600 ? 28.0 : 18.0);
+                                      return EdgeInsets.fromLTRB(
+                                        horizontalPadding,
+                                        0,
+                                        horizontalPadding,
+                                        18 + bottomInset,
+                                      );
+                                    }(),
                                     children: [
-                                      Expanded(
-                                        child: Text(
-                                          'Send report',
-                                          style: theme.textTheme.headlineLg
-                                              .copyWith(
-                                            fontWeight: FontWeight.w800,
-                                          ),
-                                        ),
-                                      ),
-                                      IconButton(
-                                        onPressed: _busy
-                                            ? null
-                                            : () => Navigator.of(context).pop(),
-                                        icon: const Icon(Icons.close),
-                                      ),
-                                    ],
-                                  ),
-                                  if (widget.transactionType ==
-                                      ComplaintTransactionType.goodsPurchase)
-                                    Text(
-                                      'Report a possible pricing issue when buying something.',
-                                      style: theme.textTheme.bodyMd.copyWith(
-                                        color:
-                                            theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                    )
-                                  else
-                                    Text(
-                                      'Report a possible pricing issue when exchanging money.',
-                                      style: theme.textTheme.bodyMd.copyWith(
-                                        color:
-                                            theme.colorScheme.onSurfaceVariant,
-                                      ),
-                                    ),
-                                  const SizedBox(height: 16),
-                                  _SectionHeader(
-                                    title: 'Town',
-                                    subtitle: 'Required',
-                                  ),
-                                  const SizedBox(height: 8),
-                                  _SearchSelectField(
-                                    label: 'Choose town',
-                                    value: _town,
-                                    options: _zimTowns,
-                                    searchHint: 'Search town',
-                                    onSelected: (value) =>
-                                        setState(() => _town = value),
-                                  ),
-                                  const SizedBox(height: 14),
-                                  if (widget.transactionType ==
-                                      ComplaintTransactionType
-                                          .goodsPurchase) ...[
-                                    _SectionHeader(
-                                      title: 'Business name',
-                                      subtitle: 'Required for buying goods',
-                                    ),
-                                    const SizedBox(height: 8),
-                                    TextFormField(
-                                      controller: _businessController,
-                                      textCapitalization:
-                                          TextCapitalization.words,
-                                      decoration: _fieldDecoration(
-                                        theme,
-                                        hintText: 'e.g. OK Supermarket',
-                                      ),
-                                      validator: (value) {
-                                        if (value == null ||
-                                            value.trim().isEmpty) {
-                                          return 'Enter the business name.';
-                                        }
-                                        return null;
-                                      },
-                                    ),
-                                    const SizedBox(height: 14),
-                                    _SectionHeader(
-                                      title: 'Item name',
-                                      subtitle: 'Optional',
-                                    ),
-                                    const SizedBox(height: 8),
-                                    _SearchSelectField(
-                                      label: 'Choose good',
-                                      value: _itemController.text.isEmpty
-                                          ? null
-                                          : _itemController.text,
-                                      options: _commonGoods,
-                                      searchHint: 'Search goods',
-                                      onSelected: (value) => setState(
-                                          () => _itemController.text = value),
-                                    ),
-                                    const SizedBox(height: 14),
-                                    _SectionHeader(
-                                      title: 'Description',
-                                      subtitle: 'Optional',
-                                    ),
-                                    const SizedBox(height: 8),
-                                    TextFormField(
-                                      controller: _descriptionController,
-                                      maxLines: 4,
-                                      textInputAction: TextInputAction.newline,
-                                      decoration: _fieldDecoration(
-                                        theme,
-                                        hintText:
-                                            'Tell us what happened in a few words.',
-                                      ),
-                                    ),
-                                  ] else ...[
-                                    _SectionHeader(
-                                      title: 'Where did this happen',
-                                      subtitle: 'Required',
-                                    ),
-                                    const SizedBox(height: 8),
-                                    _SearchSelectField(
-                                      label: 'Choose location type',
-                                      value: _exchangeLocationType,
-                                      options: _exchangeLocationTypes,
-                                      searchHint: 'Search location type',
-                                      onSelected: (value) => setState(
-                                          () => _exchangeLocationType = value),
-                                    ),
-                                    const SizedBox(height: 14),
-                                    _SectionHeader(
-                                      title: 'Business name',
-                                      subtitle: 'Optional',
-                                    ),
-                                    const SizedBox(height: 8),
-                                    TextFormField(
-                                      controller: _businessController,
-                                      textCapitalization:
-                                          TextCapitalization.words,
-                                      decoration: _fieldDecoration(
-                                        theme,
-                                        hintText: 'Optional business or agent',
-                                      ),
-                                    ),
-                                  ],
-                                  const SizedBox(height: 18),
-                                  SizedBox(
-                                    height: 52,
-                                    child: FilledButton(
-                                      onPressed: _busy ? null : _submit,
-                                      style: FilledButton.styleFrom(
-                                        backgroundColor: Colors.black,
-                                        foregroundColor: Colors.white,
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius:
-                                              BorderRadius.circular(16),
-                                        ),
-                                      ),
-                                      child: _busy
-                                          ? const SizedBox(
-                                              width: 22,
-                                              height: 22,
-                                              child: CircularProgressIndicator(
-                                                strokeWidth: 2.2,
-                                                valueColor:
-                                                    AlwaysStoppedAnimation<
-                                                        Color>(
-                                                  Colors.white,
-                                                ),
-                                              ),
-                                            )
-                                          : const Text(
-                                              'Submit',
-                                              style: TextStyle(
+                                      Row(
+                                        children: [
+                                          Expanded(
+                                            child: Text(
+                                              'Send report',
+                                              style: theme.textTheme.headlineLg
+                                                  .copyWith(
                                                 fontWeight: FontWeight.w800,
                                               ),
                                             ),
-                                    ),
+                                          ),
+                                          IconButton(
+                                            onPressed: _busy
+                                                ? null
+                                                : () =>
+                                                    Navigator.of(context).pop(),
+                                            icon: const Icon(Icons.close),
+                                          ),
+                                        ],
+                                      ),
+                                      _SectionHeader(
+                                        title: 'What were you doing?',
+                                        subtitle: 'Required',
+                                      ),
+                                      const SizedBox(height: 8),
+                                      DropdownButtonFormField<
+                                          ComplaintTransactionType>(
+                                        value: _transactionType,
+                                        isExpanded: true,
+                                        decoration: _fieldDecoration(
+                                          theme,
+                                          hintText: 'Choose report type',
+                                        ),
+                                        items: ComplaintTransactionType.values
+                                            .map(
+                                              (type) => DropdownMenuItem(
+                                                value: type,
+                                                child: Text(
+                                                  type.uiLabel,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: theme.textTheme.bodyLg
+                                                      .copyWith(
+                                                    fontWeight: FontWeight.w800,
+                                                  ),
+                                                ),
+                                              ),
+                                            )
+                                            .toList(),
+                                        onChanged: _busy
+                                            ? null
+                                            : (value) {
+                                                if (value == null) return;
+                                                setState(() {
+                                                  _transactionType = value;
+                                                  _exchangeLocationType = null;
+                                                });
+                                              },
+                                      ),
+                                      const SizedBox(height: 16),
+                                      if (_transactionType ==
+                                          ComplaintTransactionType
+                                              .goodsPurchase)
+                                        Text(
+                                          'Report a possible pricing issue when buying something.',
+                                          style:
+                                              theme.textTheme.bodyMd.copyWith(
+                                            color: theme
+                                                .colorScheme.onSurfaceVariant,
+                                          ),
+                                        )
+                                      else
+                                        Text(
+                                          'Report a possible pricing issue when exchanging money.',
+                                          style:
+                                              theme.textTheme.bodyMd.copyWith(
+                                            color: theme
+                                                .colorScheme.onSurfaceVariant,
+                                          ),
+                                        ),
+                                      const SizedBox(height: 16),
+                                      _SectionHeader(
+                                        title: 'Town',
+                                        subtitle: 'Required',
+                                      ),
+                                      const SizedBox(height: 8),
+                                      _SearchSelectField(
+                                        label: 'Choose town',
+                                        value: _town,
+                                        options: liveFlags.towns,
+                                        searchHint: 'Search town',
+                                        onSelected: (value) =>
+                                            setState(() => _town = value),
+                                      ),
+                                      const SizedBox(height: 14),
+                                      if (_transactionType ==
+                                          ComplaintTransactionType
+                                              .goodsPurchase) ...[
+                                        _SectionHeader(
+                                          title: 'Business name',
+                                          subtitle: 'Required for buying goods',
+                                        ),
+                                        const SizedBox(height: 8),
+                                        TextFormField(
+                                          controller: _businessController,
+                                          textCapitalization:
+                                              TextCapitalization.words,
+                                          style: TextStyle(
+                                            fontSize: MediaQuery.sizeOf(context).width < 360
+                                                ? 14.0
+                                                : 16.0,
+                                          ),
+                                          decoration: _fieldDecoration(
+                                            theme,
+                                            hintText: 'e.g. Britek Supermarket',
+                                          ),
+                                          validator: (value) {
+                                            if (value == null ||
+                                                value.trim().isEmpty) {
+                                              return 'Enter the business name.';
+                                            }
+                                            return null;
+                                          },
+                                        ),
+                                        const SizedBox(height: 14),
+                                        _SectionHeader(
+                                          title: 'Item name',
+                                          subtitle: 'Optional',
+                                        ),
+                                        const SizedBox(height: 8),
+                                        _SearchSelectField(
+                                          label: 'Choose good',
+                                          value: _itemController.text.isEmpty
+                                              ? null
+                                              : _itemController.text,
+                                          options: liveFlags.goodsCategories,
+                                          searchHint: 'Search goods',
+                                          onSelected: (value) => setState(() =>
+                                              _itemController.text = value),
+                                        ),
+                                        const SizedBox(height: 14),
+                                        _SectionHeader(
+                                          title: 'Description',
+                                          subtitle: 'Optional',
+                                        ),
+                                        const SizedBox(height: 8),
+                                        TextFormField(
+                                          controller: _descriptionController,
+                                          maxLines: 4,
+                                          textInputAction:
+                                              TextInputAction.newline,
+                                          style: TextStyle(
+                                            fontSize: MediaQuery.sizeOf(context).width < 360
+                                                ? 14.0
+                                                : 16.0,
+                                          ),
+                                          decoration: _fieldDecoration(
+                                            theme,
+                                            hintText:
+                                                'Tell us what happened in a few words.',
+                                          ),
+                                        ),
+                                      ] else ...[
+                                        _SectionHeader(
+                                          title: 'Where did this happen',
+                                          subtitle: 'Required',
+                                        ),
+                                        const SizedBox(height: 8),
+                                        _SearchSelectField(
+                                          label: 'Choose location type',
+                                          value: _exchangeLocationType,
+                                          options:
+                                              liveFlags.exchangeLocationTypes,
+                                          searchHint: 'Search location type',
+                                          onSelected: (value) => setState(() =>
+                                              _exchangeLocationType = value),
+                                        ),
+                                        const SizedBox(height: 14),
+                                        _SectionHeader(
+                                          title: 'Business name',
+                                          subtitle: 'Optional',
+                                        ),
+                                        const SizedBox(height: 8),
+                                        TextFormField(
+                                          controller: _businessController,
+                                          textCapitalization:
+                                              TextCapitalization.words,
+                                          style: TextStyle(
+                                            fontSize: MediaQuery.sizeOf(context).width < 360
+                                                ? 14.0
+                                                : 16.0,
+                                          ),
+                                          decoration: _fieldDecoration(
+                                            theme,
+                                            hintText:
+                                                'Optional business or agent',
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 18),
+                                      SizedBox(
+                                        height: 52,
+                                        child: FilledButton(
+                                          onPressed: _busy ? null : _submit,
+                                          style: FilledButton.styleFrom(
+                                            backgroundColor: Colors.black,
+                                            foregroundColor: Colors.white,
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius:
+                                                  BorderRadius.circular(16),
+                                            ),
+                                          ),
+                                          child: _busy
+                                              ? const SizedBox(
+                                                  width: 22,
+                                                  height: 22,
+                                                  child:
+                                                      CircularProgressIndicator(
+                                                    strokeWidth: 2.2,
+                                                    valueColor:
+                                                        AlwaysStoppedAnimation<
+                                                            Color>(
+                                                      Colors.white,
+                                                    ),
+                                                  ),
+                                                )
+                                              : const Text(
+                                                  'Submit',
+                                                  style: TextStyle(
+                                                    fontWeight: FontWeight.w800,
+                                                  ),
+                                                ),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 18),
+                                      CheckboxListTile(
+                                        contentPadding: EdgeInsets.zero,
+                                        value: _witnessConsent,
+                                        onChanged: _busy
+                                            ? null
+                                            : (value) {
+                                                setState(() {
+                                                  _witnessConsent =
+                                                      value ?? false;
+                                                });
+                                              },
+                                        controlAffinity:
+                                            ListTileControlAffinity.leading,
+                                        title: Text(
+                                          'I am willing to be contacted as a witness if needed',
+                                          style:
+                                              theme.textTheme.bodyMd.copyWith(
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                        ),
+                                      ),
+                                      if (_witnessConsent) ...[
+                                        const SizedBox(height: 10),
+                                        TextFormField(
+                                          controller: _witnessPhoneController,
+                                          keyboardType: TextInputType.phone,
+                                          decoration: _fieldDecoration(
+                                            theme,
+                                            hintText:
+                                                'Witness phone number (optional)',
+                                          ),
+                                        ),
+                                      ],
+                                      const SizedBox(height: 24),
+                                    ],
                                   ),
-                                  const SizedBox(height: 24),
-                                ],
+                                ),
                               ),
-                            ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
-                    ),
-                  ),
-                );
-              },
-            ),
+                    );
+                  },
+                ),
+        );
+      },
     );
   }
 }
@@ -1425,11 +1595,13 @@ class _ComplaintConfirmationView extends StatelessWidget {
   const _ComplaintConfirmationView({
     super.key,
     required this.referenceNumber,
+    required this.disclaimerText,
     required this.onCopy,
     required this.onDone,
   });
 
   final String referenceNumber;
+  final String disclaimerText;
   final VoidCallback onCopy;
   final VoidCallback onDone;
 
@@ -1471,10 +1643,11 @@ class _ComplaintConfirmationView extends StatelessWidget {
                   color: theme.colorScheme.onSurface,
                 ),
                 textAlign: TextAlign.center,
+                overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 8),
               Text(
-                'The Consumer Protection Commission will review this report.',
+                disclaimerText,
                 textAlign: TextAlign.center,
                 style: theme.textTheme.bodyMd.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
@@ -1508,6 +1681,14 @@ class _ComplaintConfirmationView extends StatelessWidget {
       ),
     );
   }
+}
+
+String _generateComplaintReference(DateTime submittedAt) {
+  final month = submittedAt.month.toString().padLeft(2, '0');
+  final unique = (10000 + submittedAt.microsecondsSinceEpoch.remainder(90000))
+      .toString()
+      .padLeft(5, '0');
+  return 'CLR-${submittedAt.year}-$month-$unique';
 }
 
 class _SheetHandle extends StatelessWidget {
@@ -1769,10 +1950,13 @@ class _SearchSelectorSheetState extends State<_SearchSelectorSheet> {
                           onTap: () => Navigator.of(context).pop(option),
                           borderRadius: BorderRadius.circular(16),
                           child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 14,
-                            ),
+                            padding: () {
+                              final screenWidth = MediaQuery.sizeOf(context).width;
+                              final itemPadding = screenWidth < 360
+                                  ? const EdgeInsets.symmetric(horizontal: 10, vertical: 12)
+                                  : const EdgeInsets.symmetric(horizontal: 14, vertical: 14);
+                              return itemPadding;
+                            }(),
                             decoration: BoxDecoration(
                               color: selected
                                   ? theme.colorScheme.primaryContainer
@@ -1820,160 +2004,6 @@ double _fuzzyScore(String haystack, String query) {
   }
   return score.toDouble();
 }
-
-final List<String> _zimTowns = <String>[
-  'Beitbridge',
-  'Binga',
-  'Bindura',
-  'Bikita',
-  'Bulawayo',
-  'Bubi',
-  'Centenary',
-  'Chegutu',
-  'Chimanimani',
-  'Chinhoyi',
-  'Chipinge',
-  'Chiredzi',
-  'Chivhu',
-  'Concession',
-  'Darwendale',
-  'Esigodini',
-  'Gokwe',
-  'Gwanda',
-  'Gweru',
-  'Harare',
-  'Hwange',
-  'Insiza',
-  'Kadoma',
-  'Kariba',
-  'Karoi',
-  'Kezi',
-  'Kwekwe',
-  'Lupane',
-  'Lundi',
-  'Macheke',
-  'Makaha',
-  'Mberengwa',
-  'Marondera',
-  'Masvingo',
-  'Matobo',
-  'Mazowe',
-  'Mhangura',
-  'Mt Darwin',
-  'Mvurwi',
-  'Mutare',
-  'Murehwa',
-  'Mushumbi Pools',
-  'Mutoko',
-  'Mvuma',
-  'Norton',
-  'Nyanga',
-  'Nkayi',
-  'Nyamandlovu',
-  'Plumtree',
-  'Redcliff',
-  'Rushinga',
-  'Rusape',
-  'Ruwa',
-  'Shamva',
-  'Shurugwi',
-  'Seke',
-  'St Alberts',
-  'Zaka',
-  'Zhombe',
-  'Tsholotsho',
-  'Victoria Falls',
-  'Wedza',
-  'West Nicholson',
-  'Zvishavane',
-]..sort();
-
-final List<String> _commonGoods = <String>[
-  'Airtime',
-  'Avocados',
-  'Baby formula',
-  'Apples',
-  'Bananas',
-  'Beans',
-  'Beef',
-  'Biscuits',
-  'Butter',
-  'Bread',
-  'Batteries',
-  'Cabbage',
-  'Cement',
-  'Chicken',
-  'Cooking gas',
-  'Cooking oil',
-  'Cornflakes',
-  'Cookies',
-  'Cooking salt',
-  'Cups',
-  'Detergent',
-  'Dishwashing liquid',
-  'Diapers',
-  'Eggs',
-  'Face soap',
-  'Fish',
-  'Flour',
-  'Fuel',
-  'Fruits',
-  'Fuel coupon',
-  'Garlic',
-  'Garri',
-  'Grapes',
-  'Groceries',
-  'Groundnuts',
-  'Instant coffee',
-  'Ice cream',
-  'Iron sheets',
-  'Jam',
-  'Laundry soap',
-  'Laptop',
-  'Lemons',
-  'Maize',
-  'Maize meal',
-  'Matches',
-  'Milk',
-  'Mop',
-  'Nappies',
-  'Onions',
-  'Orange juice',
-  'Oranges',
-  'Peanut butter',
-  'Petrol',
-  'Phone',
-  'Phone charger',
-  'Pork',
-  'Potatoes',
-  'Rice',
-  'Salt',
-  'School shoes',
-  'School uniform',
-  'Sacks',
-  'Soda',
-  'Soap',
-  'Sugar',
-  'Sweets',
-  'Stationery',
-  'Toilet paper',
-  'Toothpaste',
-  'Tomatoes',
-  'Vegetable oil',
-  'Vegetables',
-  'Yoghurt',
-  'Water',
-]..sort();
-
-const List<String> _exchangeLocationTypes = <String>[
-  'Bank',
-  'Bureau de change',
-  'Fuel station',
-  'Mobile money agent',
-  'Shop or supermarket',
-  'Street money changer',
-  'Other',
-];
 
 class _ComparisonPanel extends StatelessWidget {
   const _ComparisonPanel({

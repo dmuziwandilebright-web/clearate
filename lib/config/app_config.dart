@@ -9,7 +9,7 @@ class AppConfig {
     this.anomalyRejectThreshold = 0.15,
   });
 
-  /// Cloudflare Worker endpoint that returns the nested rates payload.
+  /// Cloudflare Worker endpoint that returns the nested live rates payload.
   ///
   /// Example response:
   /// {
@@ -28,7 +28,8 @@ class AppConfig {
   /// }
   final Uri proxyRatesUrl;
 
-  /// Hosted JSON that contains the latest app version and APK URL.
+  /// Hosted JSON that contains the latest app version, APK URL, release notes,
+  /// support contact numbers, and feature flags.
   final Uri versionInfoUrl;
 
   /// Minimum time between successful online refreshes. Enforced by timestamp,
@@ -45,7 +46,8 @@ class AppConfig {
     );
     final version = const String.fromEnvironment(
       'CLEARATE_VERSION_INFO_URL',
-      defaultValue: 'https://yourusername.github.io/clearate/version.json',
+      defaultValue:
+          'https://dmuziwandilebright-web.github.io/clearate/version.json',
     );
 
     return AppConfig(

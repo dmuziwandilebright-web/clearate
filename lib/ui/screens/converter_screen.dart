@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/app_scope.dart';
 import '../../domain/currency.dart';
+import '../../services/analytics_service.dart';
 import '../formatters.dart';
 import '../theme.dart';
 
@@ -17,6 +20,12 @@ class _ConverterScreenState extends State<ConverterScreen> {
   final TextEditingController _amountController = TextEditingController();
   Currency _from = Currency.usd;
   Currency _to = Currency.zar;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(AnalyticsService.logScreenView('converter_screen'));
+  }
 
   void _swap() {
     setState(() {
@@ -402,65 +411,6 @@ class _SwapButton extends StatelessWidget {
             Icons.swap_vert,
             color: Colors.white,
             size: size * 0.48,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _KeypadKey extends StatelessWidget {
-  const _KeypadKey({
-    required this.size,
-    required this.label,
-    required this.onTap,
-    this.onLongPress,
-    this.destructive = false,
-    this.compact = false,
-  });
-
-  final double size;
-  final String label;
-  final VoidCallback onTap;
-  final VoidCallback? onLongPress;
-  final bool destructive;
-  final bool compact;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      onLongPress: onLongPress,
-      child: SizedBox(
-        width: size,
-        height: size,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 120),
-          decoration: BoxDecoration(
-            color: destructive
-                ? const Color(0xFFFFDAD6)
-                : theme.colorScheme.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(size / 2),
-            border: Border.all(color: theme.colorScheme.outlineVariant),
-            boxShadow: const [],
-          ),
-          alignment: Alignment.center,
-          child: Padding(
-            padding: EdgeInsets.all(compact ? 2.5 : 3.5),
-            child: label == '⌫'
-                ? Icon(Icons.backspace_outlined,
-                    color: theme.colorScheme.error, size: compact ? 16 : 18)
-                : Text(
-                    label,
-                    style: theme.textTheme.headlineMd.copyWith(
-                      color: destructive
-                          ? theme.colorScheme.error
-                          : theme.colorScheme.onSurface,
-                      fontSize: compact ? 20 : 22,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
           ),
         ),
       ),

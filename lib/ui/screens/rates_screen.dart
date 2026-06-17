@@ -1140,7 +1140,7 @@ class _RateCardState extends State<_RateCard> {
     final direction = isFlat ? 0 : (delta > 0 ? 1 : -1);
     final deltaText = isFlat
         ? 'Normal'
-        : '${delta >= 0 ? '+' : '-'}${delta.abs().toStringAsFixed(1)}% vs yesterday';
+        : '${delta >= 0 ? '+' : '-'}${delta.abs().toStringAsFixed(1)}% vs last saved rates';
     final deltaColor = isFlat
         ? const Color(0xFF6B7280)
         : (delta >= 0 ? const Color(0xFF1B5E20) : const Color(0xFFB71C1C));

@@ -1,7 +1,18 @@
 {
   "latest": "1.0.0",
   "apk_url": "https://dmuziwandilebright-web.github.io/clearate/app-release.apk",
-  "release_notes": "First release of Clearate — live rates, price check, converter and QR sharing",
+  "release_notes": "First release of Clearate",
   "company": "Britek",
-  "support": "+263771479216"
+  "support": ["+263780464255", "+263771479216"],
+  "tagline": "Financial Truth for Every Zimbabwean",
+  "complaint_disclaimer": "Your report has been recorded. Clearate is working to establish a formal partnership with Zimbabwe's Consumer Protection Commission.",
+  "demo_rates": {
+    "usd_zwg": 26.78,
+    "usd_zar": 16.58,
+    "zar_zwg": 1.61,
+    "zwg_zar": 0.62,
+    "usd_bwp": 13.60,
+    "bwp_zar": 1.22,
+    "bwp_zwg": 1.97
+  }
 }

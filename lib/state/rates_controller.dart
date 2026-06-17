@@ -48,11 +48,17 @@ class RatesController extends ChangeNotifier {
     required RatesCache cache,
     required RatesClient client,
     required AppConfig config,
+    Map<String, double>? demoRates,
   })  : _cache = cache,
         _client = client,
-        _config = config {
+        _config = config,
+        _demoRates = demoRates ?? fallbackDemoRates {
     final cached = _cache.readLatest();
-    final snapshot = cached ?? buildDemoSnapshot(fetchedAt: DateTime.now());
+    final snapshot = cached ??
+        buildDemoSnapshot(
+          fetchedAt: DateTime.now(),
+          demoRates: _demoRates,
+        );
     _usingDemoFallback = cached == null;
     _state = RatesState(
       snapshot: snapshot,
@@ -64,6 +70,7 @@ class RatesController extends ChangeNotifier {
   final RatesCache _cache;
   final RatesClient _client;
   final AppConfig _config;
+  final Map<String, double> _demoRates;
   bool _usingDemoFallback = false;
 
   late RatesState _state;
@@ -197,7 +204,7 @@ class RatesController extends ChangeNotifier {
   }
 
   String? _detectAnomaly(RateSnapshot incoming) {
-    final demoUsdZar = (demoRates['usd_zar'] as num).toDouble();
+    final demoUsdZar = _demoRates['usd_zar'] ?? fallbackDemoRates['usd_zar']!;
     final threshold = _config.anomalyRejectThreshold;
     if (demoUsdZar <= 0 || incoming.usdZar <= 0)
       return 'Rate anomaly detected. Using last known official rates.';

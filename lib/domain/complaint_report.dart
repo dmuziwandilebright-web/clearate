@@ -21,6 +21,7 @@ class ComplaintReport {
   const ComplaintReport({
     required this.referenceNumber,
     required this.verdict,
+    required this.status,
     required this.transactionType,
     required this.fromCurrency,
     required this.toCurrency,
@@ -37,14 +38,16 @@ class ComplaintReport {
     required this.rateDate,
     required this.serverTime,
     required this.appVersion,
-    required this.status,
     required this.submittedAt,
-    required this.verdictCardUrl,
+    required this.verdictCardBase64,
     required this.town,
     this.businessName,
     this.itemName,
     this.exchangeLocationType,
     this.description,
+    this.resolutionNote,
+    this.witnessConsent = false,
+    this.witnessPhone,
   });
 
   final String referenceNumber;
@@ -67,12 +70,15 @@ class ComplaintReport {
   final String appVersion;
   final String status;
   final DateTime submittedAt;
-  final String verdictCardUrl;
+  final String verdictCardBase64;
   final String town;
   final String? businessName;
   final String? itemName;
   final String? exchangeLocationType;
   final String? description;
+  final String? resolutionNote;
+  final bool witnessConsent;
+  final String? witnessPhone;
 
   Map<String, Object?> toJson() => <String, Object?>{
         'reference': referenceNumber,
@@ -95,12 +101,15 @@ class ComplaintReport {
         'app_version': appVersion,
         'status': status,
         'submitted_at': submittedAt.toIso8601String(),
-        'verdict_card_url': verdictCardUrl,
+        'verdict_card_base64': verdictCardBase64,
         'town': town,
         'business_name': businessName,
         'item_name': itemName,
         'exchange_location_type': exchangeLocationType,
         'description': description,
+        'resolution_note': resolutionNote,
+        'witness_consent': witnessConsent,
+        'witness_phone': witnessPhone,
       };
 
   static ComplaintReport? fromJson(Object? json) {
@@ -111,8 +120,7 @@ class ComplaintReport {
       _ => ComplaintTransactionType.goodsPurchase,
     };
 
-    final submittedAt =
-        DateTime.tryParse(map['submitted_at']?.toString() ?? '');
+    final submittedAt = _readDate(map['submitted_at']);
     if (submittedAt == null) return null;
 
     return ComplaintReport(
@@ -136,12 +144,17 @@ class ComplaintReport {
       appVersion: map['app_version']?.toString() ?? '',
       status: map['status']?.toString() ?? '',
       submittedAt: submittedAt,
-      verdictCardUrl: map['verdict_card_url']?.toString() ?? '',
+      verdictCardBase64: map['verdict_card_base64']?.toString() ??
+          map['verdict_card_url']?.toString() ??
+          '',
       town: map['town']?.toString() ?? '',
       businessName: map['business_name']?.toString(),
       itemName: map['item_name']?.toString(),
       exchangeLocationType: map['exchange_location_type']?.toString(),
       description: map['description']?.toString(),
+      resolutionNote: map['resolution_note']?.toString(),
+      witnessConsent: map['witness_consent'] == true,
+      witnessPhone: map['witness_phone']?.toString(),
     );
   }
 }
@@ -149,4 +162,11 @@ class ComplaintReport {
 double _readNum(Object? value) {
   if (value is num) return value.toDouble();
   return double.tryParse(value?.toString() ?? '') ?? 0.0;
+}
+
+DateTime? _readDate(Object? value) {
+  if (value is DateTime) return value;
+  final raw = value?.toString() ?? '';
+  if (raw.isEmpty) return null;
+  return DateTime.tryParse(raw);
 }

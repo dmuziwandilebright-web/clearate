@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:package_info_plus/package_info_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_scope.dart';
 import '../../config/brand_assets.dart';
@@ -27,11 +29,13 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
   ];
 
   int _index = 0;
+  PackageInfo? _packageInfo;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    unawaited(_loadPackageInfo());
   }
 
   @override
@@ -42,6 +46,12 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
 
   Future<void> _reloadFromStorage() async {
     await AppScope.of(context).ratesController.restoreFromStorage();
+  }
+
+  Future<void> _loadPackageInfo() async {
+    final info = await PackageInfo.fromPlatform();
+    if (!mounted) return;
+    setState(() => _packageInfo = info);
   }
 
   @override
@@ -89,6 +99,25 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
     }
   }
 
+  bool _isNewer(String latest, String current) {
+    List<int> parts(String v) =>
+        v.split('.').map((part) => int.tryParse(part) ?? 0).toList();
+    final a = parts(latest);
+    final b = parts(current);
+    for (var i = 0; i < 3; i++) {
+      final ai = i < a.length ? a[i] : 0;
+      final bi = i < b.length ? b[i] : 0;
+      if (ai != bi) return ai > bi;
+    }
+    return false;
+  }
+
+  Future<void> _openUpdate() async {
+    final apkUrl = AppScope.of(context).releaseInfo?.apkUrl;
+    if (apkUrl == null) return;
+    await launchUrl(apkUrl, mode: LaunchMode.externalApplication);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -112,28 +141,150 @@ class _HomeShellState extends State<HomeShell> with WidgetsBindingObserver {
       body: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 720),
-          child: Stack(
-            children: [
-              for (var i = 0; i < _tabs.length; i++)
-                IgnorePointer(
-                  ignoring: i != _index,
-                  child: AnimatedOpacity(
-                    opacity: i == _index ? 1 : 0,
-                    duration: const Duration(milliseconds: 150),
-                    curve: Curves.easeOut,
-                    child: TickerMode(
-                      enabled: i == _index,
-                      child: _tabs[i],
+          child: AnimatedBuilder(
+            animation: AppScope.of(context).remoteFlagsController,
+            builder: (context, _) {
+              final scope = AppScope.of(context);
+              final flags = scope.remoteFlagsController.state;
+              final currentVersion = _packageInfo?.version ?? '0.0.0';
+              final updateInfo = scope.releaseInfo;
+              final hasVersionUpdate = updateInfo != null &&
+                  updateInfo.latestVersion.isNotEmpty &&
+                  _isNewer(updateInfo.latestVersion, currentVersion);
+              final forceUpdate = flags.minAppVersion.isNotEmpty &&
+                  _isNewer(flags.minAppVersion, currentVersion);
+
+              return Column(
+                children: [
+                  if (forceUpdate)
+                    _SystemBanner(
+                      icon: Icons.system_update_alt,
+                      title: 'Update required',
+                      message:
+                          'Please update Clearate to continue using the latest live services.',
+                      background: const Color(0xFFFFE4E4),
+                      foreground: const Color(0xFF9C1F1F),
+                      actionLabel: 'Update',
+                      onAction: _openUpdate,
+                    )
+                  else if (hasVersionUpdate)
+                    _SystemBanner(
+                      icon: Icons.new_releases_outlined,
+                      title: 'Update available',
+                      message:
+                          'Version ${updateInfo.latestVersion} is ready to install.',
+                      background: const Color(0xFFEAF4FF),
+                      foreground: const Color(0xFF124E78),
+                      actionLabel: 'Update',
+                      onAction: _openUpdate,
+                    ),
+                  if (flags.announcementActive &&
+                      flags.announcementMessage.isNotEmpty)
+                    _SystemBanner(
+                      icon: Icons.campaign_outlined,
+                      title: 'Clearate notice',
+                      message: flags.announcementMessage,
+                      background: const Color(0xFFEAF9EC),
+                      foreground: const Color(0xFF166534),
+                    ),
+                  Expanded(
+                    child: Stack(
+                      children: [
+                        for (var i = 0; i < _tabs.length; i++)
+                          IgnorePointer(
+                            ignoring: i != _index,
+                            child: AnimatedOpacity(
+                              opacity: i == _index ? 1 : 0,
+                              duration: const Duration(milliseconds: 150),
+                              curve: Curves.easeOut,
+                              child: TickerMode(
+                                enabled: i == _index,
+                                child: _tabs[i],
+                              ),
+                            ),
+                          ),
+                      ],
                     ),
                   ),
-                ),
-            ],
+                ],
+              );
+            },
           ),
         ),
       ),
       bottomNavigationBar: _BottomNav(
         index: _index,
         onChanged: (value) => setState(() => _index = value),
+      ),
+    );
+  }
+}
+
+class _SystemBanner extends StatelessWidget {
+  const _SystemBanner({
+    required this.icon,
+    required this.title,
+    required this.message,
+    required this.background,
+    required this.foreground,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+  final Color background;
+  final Color foreground;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.fromLTRB(12, 10, 12, 0),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: foreground.withOpacity(0.2)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: foreground),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.labelMd.copyWith(
+                    color: foreground,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  message,
+                  style: theme.textTheme.bodyMd.copyWith(color: foreground),
+                ),
+              ],
+            ),
+          ),
+          if (actionLabel != null && onAction != null) ...[
+            const SizedBox(width: 8),
+            TextButton(
+              onPressed: onAction,
+              style: TextButton.styleFrom(foregroundColor: foreground),
+              child: Text(actionLabel!),
+            ),
+          ],
+        ],
       ),
     );
   }

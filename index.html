@@ -4,147 +4,913 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Clearate — Financial Truth for Every Zimbabwean</title>
+  <meta name="description" content="Clearate helps Zimbabweans check fair prices, convert currencies, view RBZ rates, and share financial truth offline.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+      --primary: #000000;
+      --secondary: #505F76;
+      --background: #F7F9FB;
+      --navy: #0D1B3E;
+      --surface: #FFFFFF;
+      --text: #191C1E;
+      --muted: #4A5568;
+      --green: #1B5E20;
+      --red: #9F1E1E;
+      --amber: #8A5A00;
+      --line: rgba(15, 23, 42, 0.12);
+      --shadow: 0 20px 60px rgba(13, 27, 62, 0.14);
+      --radius-sm: 8px;
+      --radius-md: 12px;
+      --radius-lg: 14px;
+      --container: 1160px;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html {
+      scroll-behavior: smooth;
+      max-width: 100%;
+      overflow-x: hidden;
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: #0D1B3E;
-      color: white;
-      min-height: 100vh;
+      margin: 0;
+      max-width: 100%;
+      overflow-x: hidden;
+      background: var(--background);
+      color: var(--text);
+      font-family: 'Public Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+      line-height: 1.6;
+      overflow-wrap: break-word;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+    }
+
+    img,
+    svg,
+    video,
+    canvas {
+      max-width: 100%;
+      height: auto;
+    }
+
+    .container {
+      width: min(100% - 32px, var(--container));
+      margin-inline: auto;
+    }
+
+    .skip-link {
+      position: absolute;
+      left: 16px;
+      top: -80px;
+      z-index: 1000;
+      padding: 12px 16px;
+      border-radius: var(--radius-sm);
+      background: var(--surface);
+      color: var(--navy);
+      font-weight: 700;
+      box-shadow: var(--shadow);
+      transition: top 0.2s ease;
+    }
+
+    .skip-link:focus {
+      top: 16px;
+    }
+
+    .navbar {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--navy);
+      color: #FFFFFF;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .nav-inner {
+      position: relative;
       display: flex;
-      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      min-height: 72px;
+      gap: 18px;
+    }
+
+    .brand {
+      display: inline-flex;
+      align-items: center;
+      gap: 12px;
+      min-width: 0;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      font-size: clamp(1.125rem, 0.8rem + 1vw, 1.45rem);
+    }
+
+    .nav-logo-img,
+    .logo-fallback {
+      width: 44px;
+      height: 44px;
+      flex: 0 0 auto;
+      border-radius: var(--radius-md);
+      object-fit: contain;
+      background: var(--navy);
+    }
+
+    .logo-fallback {
+      display: grid;
+      place-items: center;
+      color: #FFFFFF;
+      font-size: 1.35rem;
+      font-weight: 800;
+    }
+
+    .nav-toggle {
+      display: none;
+    }
+
+    .nav-toggle-button {
+      display: none;
+      width: 48px;
+      height: 48px;
       align-items: center;
       justify-content: center;
-      padding: 40px 20px;
+      flex-direction: column;
+      gap: 5px;
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+    }
+
+    .nav-toggle-button span {
+      display: block;
+      width: 24px;
+      height: 2px;
+      border-radius: 999px;
+      background: #FFFFFF;
+      transition: transform 0.2s ease, opacity 0.2s ease;
+    }
+
+    .nav-toggle:checked + .nav-toggle-button span:nth-child(1) {
+      transform: translateY(7px) rotate(45deg);
+    }
+
+    .nav-toggle:checked + .nav-toggle-button span:nth-child(2) {
+      opacity: 0;
+    }
+
+    .nav-toggle:checked + .nav-toggle-button span:nth-child(3) {
+      transform: translateY(-7px) rotate(-45deg);
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .nav-links a {
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 14px;
+      border-radius: var(--radius-sm);
+      color: rgba(255, 255, 255, 0.86);
+      font-weight: 600;
+      font-size: 0.95rem;
+      transition: background 0.2s ease, color 0.2s ease;
+    }
+
+    .nav-links a:hover,
+    .nav-links a:focus-visible {
+      background: rgba(255, 255, 255, 0.12);
+      color: #FFFFFF;
+      outline: none;
+    }
+
+    .hero {
+      position: relative;
+      background:
+        radial-gradient(circle at top left, rgba(27, 94, 32, 0.32), transparent 34rem),
+        radial-gradient(circle at 80% 10%, rgba(138, 90, 0, 0.22), transparent 26rem),
+        var(--navy);
+      color: #FFFFFF;
+      overflow: hidden;
+    }
+
+    .hero-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1.08fr) minmax(280px, 0.92fr);
+      align-items: center;
+      gap: clamp(32px, 7vw, 72px);
+      padding: clamp(72px, 10vw, 128px) 0 clamp(64px, 9vw, 112px);
+    }
+
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      max-width: 100%;
+      margin: 0 0 20px;
+      padding: 8px 12px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.08);
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 700;
+      font-size: clamp(0.82rem, 0.72rem + 0.5vw, 0.95rem);
+    }
+
+    h1,
+    h2,
+    h3,
+    p {
+      max-width: 100%;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(2.5rem, 6.4vw, 5.25rem);
+      line-height: 0.98;
+      letter-spacing: -0.07em;
+      text-wrap: balance;
+    }
+
+    .hero-subheadline {
+      max-width: 680px;
+      margin: 24px 0 0;
+      color: rgba(255, 255, 255, 0.82);
+      font-size: clamp(1.08rem, 1rem + 0.9vw, 1.35rem);
+      line-height: 1.65;
+    }
+
+    .hero-actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 14px;
+      margin-top: 34px;
+    }
+
+    .button {
+      min-height: 52px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 0 24px;
+      border: 1px solid transparent;
+      border-radius: var(--radius-lg);
+      font-weight: 800;
+      font-size: 1rem;
+      line-height: 1.1;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+    }
+
+    .button:hover,
+    .button:focus-visible {
+      transform: translateY(-2px);
+      outline: none;
+    }
+
+    .button-primary {
+      background: var(--green);
+      color: #FFFFFF;
+      box-shadow: 0 16px 34px rgba(27, 94, 32, 0.3);
+    }
+
+    .button-primary:hover,
+    .button-primary:focus-visible {
+      background: #2E7D32;
+      box-shadow: 0 20px 42px rgba(27, 94, 32, 0.38);
+    }
+
+    .button-secondary {
+      background: rgba(255, 255, 255, 0.1);
+      color: #FFFFFF;
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .button-secondary:hover,
+    .button-secondary:focus-visible {
+      background: rgba(255, 255, 255, 0.16);
+    }
+
+    .hero-card {
+      min-width: 0;
+      padding: clamp(20px, 4vw, 34px);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: var(--radius-lg);
+      background: rgba(255, 255, 255, 0.08);
+      box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+      backdrop-filter: blur(12px);
+    }
+
+    .hero-logo {
+      width: clamp(76px, 13vw, 112px);
+      height: clamp(76px, 13vw, 112px);
+      border-radius: var(--radius-lg);
+      margin-bottom: 24px;
+      object-fit: contain;
+      background: #FFFFFF;
+    }
+
+    .hero-card h2 {
+      margin: 0;
+      font-size: clamp(1.5rem, 2.4vw, 2rem);
+      line-height: 1.15;
+      letter-spacing: -0.04em;
+    }
+
+    .hero-card p {
+      margin: 14px 0 0;
+      color: rgba(255, 255, 255, 0.78);
+      font-size: 1rem;
+    }
+
+    .hero-points {
+      display: grid;
+      gap: 12px;
+      margin: 24px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .hero-points li {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      color: rgba(255, 255, 255, 0.88);
+    }
+
+    .trust-strip {
+      background: #FFFFFF;
+      border-top: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+    }
+
+    .trust-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 0;
+    }
+
+    .trust-item {
+      min-width: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 12px;
+      min-height: 76px;
+      padding: 16px;
+      color: var(--secondary);
+      font-weight: 800;
+      text-align: center;
+      border-right: 1px solid var(--line);
+    }
+
+    .trust-item:last-child {
+      border-right: 0;
+    }
+
+    .trust-item span:last-child {
+      color: var(--green);
+      font-size: 1.4rem;
+      line-height: 1;
+    }
+
+    .section {
+      padding: clamp(64px, 9vw, 104px) 0;
+    }
+
+    .section-header {
+      max-width: 760px;
+      margin: 0 auto 36px;
       text-align: center;
     }
-    .logo {
-      width: 100px;
-      height: 100px;
-      background: #1A237E;
-      border-radius: 24px;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      margin: 0 auto 24px;
-      font-size: 48px;
+
+    .section-kicker {
+      margin: 0 0 10px;
+      color: var(--green);
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      font-size: 0.78rem;
     }
-    h1 {
-      font-size: 42px;
-      font-weight: 700;
-      letter-spacing: -1px;
-      margin-bottom: 8px;
+
+    h2 {
+      margin: 0;
+      color: var(--primary);
+      font-size: clamp(2rem, 4.4vw, 3.2rem);
+      line-height: 1.08;
+      letter-spacing: -0.055em;
+      text-wrap: balance;
     }
-    .tagline {
-      font-size: 18px;
-      color: #69F0AE;
-      margin-bottom: 16px;
-    }
-    .description {
-      font-size: 15px;
-      color: #AAAAAA;
-      max-width: 480px;
+
+    .section-header p {
+      margin: 16px 0 0;
+      color: var(--muted);
+      font-size: clamp(1rem, 0.8rem + 0.8vw, 1.16rem);
       line-height: 1.7;
-      margin-bottom: 40px;
     }
-    .download-btn {
-      display: inline-block;
-      background: #1B5E20;
-      color: white;
-      padding: 16px 40px;
-      border-radius: 12px;
-      text-decoration: none;
-      font-size: 18px;
-      font-weight: 600;
-      margin-bottom: 12px;
-    }
-    .download-btn:hover { background: #2E7D32; }
-    .version {
-      font-size: 12px;
-      color: #666;
-      margin-bottom: 60px;
-    }
-    .features {
+
+    .features-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: 16px;
-      max-width: 700px;
-      width: 100%;
-      margin-bottom: 60px;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 18px;
     }
-    .feature {
-      background: #1A1A2E;
-      border: 0.5px solid #333;
-      border-radius: 12px;
-      padding: 20px;
-      text-align: left;
+
+    .feature-card {
+      min-width: 0;
+      padding: 24px;
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: var(--surface);
+      box-shadow: 0 16px 42px rgba(13, 27, 62, 0.08);
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
-    .feature-icon { font-size: 28px; margin-bottom: 10px; }
-    .feature-title {
-      font-size: 14px;
+
+    .feature-card:hover {
+      transform: translateY(-4px);
+      box-shadow: var(--shadow);
+    }
+
+    .feature-icon {
+      display: grid;
+      place-items: center;
+      width: 48px;
+      height: 48px;
+      margin-bottom: 18px;
+      border-radius: var(--radius-md);
+      background: rgba(27, 94, 32, 0.1);
+      font-size: 1.45rem;
+    }
+
+    .feature-card h3 {
+      margin: 0;
+      color: var(--primary);
+      font-size: 1.12rem;
+      line-height: 1.25;
+      letter-spacing: -0.02em;
+    }
+
+    .feature-card p {
+      margin: 10px 0 0;
+      color: var(--muted);
+      font-size: 0.98rem;
+      line-height: 1.65;
+    }
+
+    .about {
+      background: var(--navy);
+      color: #FFFFFF;
+    }
+
+    .about-card {
+      display: grid;
+      grid-template-columns: minmax(0, 0.95fr) minmax(280px, 1.05fr);
+      align-items: center;
+      gap: clamp(24px, 5vw, 56px);
+      padding: clamp(24px, 5vw, 48px);
+      border-radius: var(--radius-lg);
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(255, 255, 255, 0.04)),
+        var(--navy);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 24px 70px rgba(0, 0, 0, 0.24);
+    }
+
+    .about-badge {
+      display: grid;
+      place-items: center;
+      min-height: 220px;
+      border-radius: var(--radius-lg);
+      background:
+        radial-gradient(circle at 30% 20%, rgba(27, 94, 32, 0.6), transparent 12rem),
+        rgba(255, 255, 255, 0.08);
+      color: #FFFFFF;
+      text-align: center;
+      font-size: clamp(4rem, 12vw, 7rem);
+      line-height: 1;
+    }
+
+    .about-content h2 {
+      color: #FFFFFF;
+    }
+
+    .about-content p {
+      margin: 18px 0 0;
+      color: rgba(255, 255, 255, 0.8);
+      font-size: 1.05rem;
+      line-height: 1.75;
+    }
+
+    .about-list {
+      display: grid;
+      gap: 12px;
+      margin: 24px 0 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .about-list li {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+      color: rgba(255, 255, 255, 0.9);
       font-weight: 600;
-      margin-bottom: 6px;
     }
-    .feature-desc { font-size: 12px; color: #888; line-height: 1.5; }
+
+    .download-section {
+      background: linear-gradient(180deg, var(--background), #FFFFFF);
+    }
+
+    .download-panel {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 24px;
+      padding: clamp(24px, 5vw, 42px);
+      border: 1px solid var(--line);
+      border-radius: var(--radius-lg);
+      background: #FFFFFF;
+      box-shadow: var(--shadow);
+    }
+
+    .download-panel h2 {
+      font-size: clamp(1.8rem, 3.2vw, 2.6rem);
+    }
+
+    .download-panel p {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: 1.04rem;
+      line-height: 1.7;
+    }
+
     .footer {
-      font-size: 12px;
-      color: #444;
-      border-top: 0.5px solid #222;
-      padding-top: 24px;
-      width: 100%;
-      max-width: 700px;
+      padding: 36px 0;
+      background: #071026;
+      color: rgba(255, 255, 255, 0.72);
+    }
+
+    .footer-grid {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 24px;
+      align-items: start;
+    }
+
+    .footer h3 {
+      margin: 0 0 10px;
+      color: #FFFFFF;
+      font-size: 1.1rem;
+    }
+
+    .footer p {
+      margin: 0;
+      max-width: 760px;
+      line-height: 1.7;
+    }
+
+    .footer a {
+      color: #FFFFFF;
+      font-weight: 700;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+    }
+
+    .footer-links {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: flex-end;
+      gap: 12px;
+    }
+
+    .footer-links a {
+      min-height: 48px;
+      display: inline-flex;
+      align-items: center;
+      padding: 0 14px;
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      border-radius: var(--radius-sm);
+      color: rgba(255, 255, 255, 0.86);
+      font-weight: 700;
+    }
+
+    .footer-links a:hover,
+    .footer-links a:focus-visible {
+      background: rgba(255, 255, 255, 0.1);
+      outline: none;
+    }
+
+    :focus-visible {
+      outline: 3px solid rgba(27, 94, 32, 0.55);
+      outline-offset: 3px;
+    }
+
+    @media (max-width: 980px) {
+      .hero-grid,
+      .about-card {
+        grid-template-columns: 1fr;
+      }
+
+      .features-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .download-panel {
+        grid-template-columns: 1fr;
+      }
+
+      .download-panel .button {
+        width: fit-content;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .nav-inner {
+        min-height: 66px;
+      }
+
+      .nav-toggle-button {
+        display: inline-flex;
+      }
+
+      .nav-links {
+        position: absolute;
+        top: calc(100% + 10px);
+        right: 0;
+        left: 0;
+        display: grid;
+        gap: 6px;
+        padding: 12px;
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        border-radius: var(--radius-md);
+        background: var(--navy);
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.28);
+        opacity: 0;
+        pointer-events: none;
+        transform: translateY(-8px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+      }
+
+      .nav-toggle:checked ~ .nav-links {
+        opacity: 1;
+        pointer-events: auto;
+        transform: translateY(0);
+      }
+
+      .nav-links a {
+        justify-content: center;
+      }
+
+      .hero-grid {
+        padding-top: 56px;
+      }
+
+      .trust-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .trust-item {
+        min-height: 64px;
+        border-right: 0;
+        border-bottom: 1px solid var(--line);
+      }
+
+      .trust-item:last-child {
+        border-bottom: 0;
+      }
+
+      .features-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .footer-links {
+        justify-content: flex-start;
+      }
+    }
+
+    @media (max-width: 420px) {
+      .container {
+        width: min(100% - 24px, var(--container));
+      }
+
+      .brand {
+        gap: 8px;
+      }
+
+      .nav-logo-img,
+      .logo-fallback {
+        width: 40px;
+        height: 40px;
+      }
+
+      .hero-actions,
+      .button {
+        width: 100%;
+      }
+
+      .button {
+        padding-inline: 16px;
+      }
+
+      .feature-card,
+      .about-card,
+      .download-panel {
+        padding: 20px;
+      }
+
+      .footer-links a {
+        width: 100%;
+        justify-content: center;
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html {
+        scroll-behavior: auto;
+      }
+
+      *,
+      *::before,
+      *::after {
+        transition-duration: 0.01ms !important;
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+      }
     }
   </style>
 </head>
 <body>
+  <a class="skip-link" href="#main">Skip to content</a>
 
-  <div class="logo">🔍</div>
-  <h1>Clearate</h1>
-  <p class="tagline">Financial Truth for Every Zimbabwean</p>
-  <p class="description">
-    Know the real exchange rate. Check if you are being charged fairly.
-    Convert currencies instantly. Share rates offline via QR.
-    Built in Plumtree, Zimbabwe.
-  </p>
+  <nav class="navbar" aria-label="Primary navigation">
+    <div class="container nav-inner">
+      <a class="brand" href="#top" aria-label="Clearate home">
+        <img class="nav-logo-img" src="clearate_brand_assets/clearate_logo/screen.png" alt="Clearate logo" onerror="this.onerror=null;const fallback=document.createElement('div');fallback.className='logo-fallback';fallback.textContent='C';this.replaceWith(fallback);">
+        <span>Clearate</span>
+      </a>
 
-  <a class="download-btn" href="app-release.apk" download>
-    ⬇ Download for Android
-  </a>
-  <p class="version">Version 1.0.0 · Free · No sign-up required</p>
+      <input class="nav-toggle" id="nav-toggle" type="checkbox" aria-label="Toggle navigation menu">
+      <label class="nav-toggle-button" for="nav-toggle" aria-hidden="true">
+        <span></span>
+        <span></span>
+        <span></span>
+      </label>
 
-  <div class="features">
-    <div class="feature">
-      <div class="feature-icon">📊</div>
-      <div class="feature-title">Live RBZ Rates</div>
-      <div class="feature-desc">Official Reserve Bank of Zimbabwe rates updated daily. Works offline after first fetch.</div>
+      <div class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#about">About</a>
+        <a href="#support">Support</a>
+      </div>
     </div>
-    <div class="feature">
-      <div class="feature-icon">✅</div>
-      <div class="feature-title">Price Check</div>
-      <div class="feature-desc">Know instantly if you are being charged fairly — FAIR, OVERCHARGED, or UNDERVALUED.</div>
-    </div>
-    <div class="feature">
-      <div class="feature-icon">↔️</div>
-      <div class="feature-title">Currency Converter</div>
-      <div class="feature-desc">Convert USD, ZiG, ZAR and BWP instantly. Works fully offline.</div>
-    </div>
-    <div class="feature">
-      <div class="feature-icon">📷</div>
-      <div class="feature-title">QR Rate Sharing</div>
-      <div class="feature-desc">Share today's rates with anyone nearby — no internet needed on either phone.</div>
-    </div>
-  </div>
+  </nav>
 
-  <div class="footer">
-    <p>© 2026 Britek · Built by Muziwandile Bright Dube · Plumtree, Zimbabwe</p>
-    <p style="margin-top:8px">
-      Support: +263771479216 · +263780464255
-    </p>
-    <p style="margin-top:8px">
-      Rates sourced from RBZ via ZimRate API ·
-      <a href="version.json" style="color:#444">version.json</a>
-    </p>
-  </div>
+  <main id="main">
+    <section class="hero" id="top">
+      <div class="container hero-grid">
+        <div>
+          <p class="eyebrow">⚡ Built in Zimbabwe for everyday financial clarity</p>
+          <h1>Financial Truth for Every Zimbabwean</h1>
+          <p class="hero-subheadline">
+            Clearate helps you check fair prices, compare official and market rates, convert currencies, and share trusted financial information even when the network is weak.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="./app-release.apk" download aria-label="Download Clearate Android APK">
+              📱 Download for Android
+            </a>
+            <a class="button button-secondary" href="#features">Explore features</a>
+          </div>
+        </div>
 
+        <aside class="hero-card" aria-label="Clearate highlights">
+          <img class="hero-logo" src="clearate_brand_assets/clearate_logo/screen.png" alt="Clearate app logo" onerror="this.onerror=null;const fallback=document.createElement('div');fallback.className='logo-fallback';fallback.textContent='C';this.replaceWith(fallback);">
+          <h2>Know before you pay</h2>
+          <p>
+            A fast mobile companion for rate checks, price validation, currency conversion, and offline QR sharing.
+          </p>
+          <ul class="hero-points">
+            <li><span>✅</span><span>No sign-up, no paywall, no hidden subscription.</span></li>
+            <li><span>🔒</span><span>Private by design: use it without creating an account.</span></li>
+            <li><span>🚀</span><span>Lightweight and ready for low-connectivity moments.</span></li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+
+    <section class="trust-strip" aria-label="Trust highlights">
+      <div class="container trust-grid">
+        <div class="trust-item"><span>100% Free</span><span>›</span></div>
+        <div class="trust-item"><span>No Sign-up</span><span>›</span></div>
+        <div class="trust-item"><span>Offline Ready</span><span>›</span></div>
+      </div>
+    </section>
+
+    <section class="section" id="features">
+      <div class="container">
+        <div class="section-header">
+          <p class="section-kicker">Features</p>
+          <h2>Clear answers when prices and rates are moving fast</h2>
+          <p>
+            Clearate turns confusing exchange-rate and pricing questions into simple checks you can trust, understand, and share.
+          </p>
+        </div>
+
+        <div class="features-grid">
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">📊</div>
+            <h3>Live RBZ Rates</h3>
+            <p>View official Reserve Bank of Zimbabwe rates with clear context, so your money decisions start from reliable information.</p>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">✅</div>
+            <h3>Price Check</h3>
+            <p>Enter an amount and quickly see whether it is fair, overcharged, or undervalued against the latest rate.</p>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">↔️</div>
+            <h3>Currency Converter</h3>
+            <p>Convert USD, ZiG, ZAR, BWP, and other currencies instantly with a clean interface built for everyday use.</p>
+          </article>
+
+          <article class="feature-card">
+            <div class="feature-icon" aria-hidden="true">📷</div>
+            <h3>QR Sharing</h3>
+            <p>Share today’s rates through QR codes, even when you and the person next to you do not both have internet access.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section about" id="about">
+      <div class="container">
+        <div class="about-card">
+          <div class="about-badge" aria-hidden="true">📍</div>
+          <div class="about-content">
+            <p class="section-kicker">About Clearate</p>
+            <h2>Born in Plumtree to make money clearer for everyone</h2>
+            <p>
+              Clearate was built in Plumtree, Zimbabwe by an 18-year-old founder who saw families, vendors, and students wrestling with fast-changing rates and unclear prices. The idea was simple: put transparent financial checks into a free app that works for real life in Zimbabwe.
+            </p>
+            <ul class="about-list">
+              <li><span>🚀</span><span>Designed for quick checks at shops, markets, schools, and border towns.</span></li>
+              <li><span>🔒</span><span>Kept simple so anyone can use it without signing up or paying.</span></li>
+              <li><span>📱</span><span>Built for Android-first access where many Zimbabweans already work and learn.</span></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section download-section" id="support">
+      <div class="container">
+        <div class="download-panel">
+          <div>
+            <p class="section-kicker">Download</p>
+            <h2>Get Clearate on your Android phone</h2>
+            <p>
+              Download the APK and start checking rates, validating prices, converting currencies, and sharing trusted information today.
+            </p>
+          </div>
+          <a class="button button-primary" href="./app-release.apk" download aria-label="Download Clearate Android APK">
+            📱 Download for Android
+          </a>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer" aria-label="Footer">
+    <div class="container footer-grid">
+      <div>
+        <h3>Clearate</h3>
+        <p>© 2026 Britek. Built by Muziwandile Bright Dube in Plumtree, Zimbabwe.</p>
+        <p style="margin-top: 10px;">Support: +263 771 479 216 · +263 780 464 255</p>
+        <p style="margin-top: 10px; color: rgba(255, 255, 255, 0.58);">
+          Rates sourced from RBZ via ZimRate API · <a href="version.json">version.json</a>
+        </p>
+      </div>
+
+      <div class="footer-links">
+        <a href="#features">Features</a>
+        <a href="#about">About</a>
+        <a href="#support">Support</a>
+      </div>
+    </div>
+  </footer>
 </body>
 </html>

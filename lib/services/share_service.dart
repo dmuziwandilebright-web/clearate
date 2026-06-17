@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:path_provider/path_provider.dart';
 import 'package:share_plus/share_plus.dart';
 
@@ -17,10 +18,63 @@ class ShareService {
       throw StateError('Could not capture share image.');
     }
 
-    final bytes = byteData.buffer.asUint8List();
+    ui.Image? watermark;
+    try {
+      final bytes = await rootBundle.load(
+        'clearate_brand_assets/clearate_logo/screen.png',
+      );
+      final codec = await ui.instantiateImageCodec(bytes.buffer.asUint8List());
+      final frame = await codec.getNextFrame();
+      watermark = frame.image;
+    } catch (_) {
+      final dir = await getTemporaryDirectory();
+      final file = File('${dir.path}/$fileNameBase.png');
+      await file.writeAsBytes(byteData.buffer.asUint8List(), flush: true);
+      return file;
+    }
+
+    final recorder = ui.PictureRecorder();
+    final canvas = Canvas(recorder);
+    final paint = Paint()..filterQuality = ui.FilterQuality.high;
+
+    canvas.drawImage(image, Offset.zero, paint);
+
+    if (watermark != null) {
+      final margin = 24.0;
+      final targetWidth = image.width * 0.28;
+      final aspect = watermark.width / watermark.height;
+      final targetHeight = targetWidth / aspect;
+      final dx = image.width - targetWidth - margin;
+      final dy = image.height - targetHeight - margin;
+
+      canvas.drawImageRect(
+        watermark,
+        Rect.fromLTWH(
+          0,
+          0,
+          watermark.width.toDouble(),
+          watermark.height.toDouble(),
+        ),
+        Rect.fromLTWH(dx, dy, targetWidth, targetHeight),
+        paint,
+      );
+    }
+
+    final picture = recorder.endRecording();
+    if (picture == null) {
+      throw StateError('Could not record picture.');
+    }
+    final composed = await picture.toImage(image.width, image.height);
+    final composedBytes = await composed.toByteData(
+      format: ui.ImageByteFormat.png,
+    );
+    if (composedBytes == null) {
+      throw StateError('Could not produce share image.');
+    }
+
     final dir = await getTemporaryDirectory();
     final file = File('${dir.path}/$fileNameBase.png');
-    await file.writeAsBytes(bytes, flush: true);
+    await file.writeAsBytes(composedBytes.buffer.asUint8List(), flush: true);
     return file;
   }
 
@@ -47,8 +101,6 @@ class ShareService {
   Future<void> shareText(String text) async {
     try {
       await Share.share(text);
-    } catch (_) {
-      // If sharing is unavailable, keep the app stable and fail silently.
-    }
+    } catch (_) {}
   }
 }

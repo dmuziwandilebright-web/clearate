@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:firebase_core/firebase_core.dart';
@@ -7,8 +8,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'app/app_scope.dart';
 import 'config/app_config.dart';
 import 'config/brand_assets.dart';
+import 'config/remote_flags.dart';
 import 'services/rates_cache.dart';
 import 'services/rates_client.dart';
+import 'services/update_checker.dart';
 import 'state/rates_controller.dart';
 import 'ui/screens/home_shell.dart';
 import 'ui/theme.dart';
@@ -45,17 +48,35 @@ class _ClearateBootstrapAppState extends State<ClearateBootstrapApp> {
     final prefs = await SharedPreferences.getInstance();
     final cache = RatesCache(prefs);
     final client = RatesClient();
+    final releaseInfo = await _loadReleaseInfo(config);
+    final remoteFlagsController = RemoteFlagsController(prefs);
+    unawaited(remoteFlagsController.refreshFromFirestore());
+    remoteFlagsController.startFirestoreListener();
     final ratesController = RatesController(
       cache: cache,
       client: client,
       config: config,
+      demoRates: releaseInfo?.demoRates,
     );
     await ratesController.restoreFromStorage();
 
     return _BootstrapResult(
       config: config,
       ratesController: ratesController,
+      releaseInfo: releaseInfo,
+      remoteFlagsController: remoteFlagsController,
     );
+  }
+
+  Future<UpdateInfo?> _loadReleaseInfo(AppConfig config) async {
+    try {
+      final update = await UpdateChecker().fetch(config).timeout(
+            const Duration(seconds: 5),
+          );
+      return update;
+    } catch (_) {
+      return null;
+    }
   }
 
   @override
@@ -89,6 +110,8 @@ class _ClearateBootstrapAppState extends State<ClearateBootstrapApp> {
         return AppScope(
           config: result.config,
           ratesController: result.ratesController,
+          releaseInfo: result.releaseInfo,
+          remoteFlagsController: result.remoteFlagsController,
           child: MaterialApp(
             title: 'Clearate',
             debugShowCheckedModeBanner: false,
@@ -106,10 +129,14 @@ class _BootstrapResult {
   const _BootstrapResult({
     required this.config,
     required this.ratesController,
+    required this.releaseInfo,
+    required this.remoteFlagsController,
   });
 
   final AppConfig config;
   final RatesController ratesController;
+  final UpdateInfo? releaseInfo;
+  final RemoteFlagsController remoteFlagsController;
 }
 
 class ClearateApp extends StatelessWidget {
@@ -165,6 +192,11 @@ class _LoadingScreenState extends State<_LoadingScreen>
 
   @override
   Widget build(BuildContext context) {
+    final size = MediaQuery.sizeOf(context);
+    final availableHeight =
+        size.height - MediaQuery.paddingOf(context).vertical - 48;
+    final imageHeight = math.max(220.0, math.min(availableHeight - 48, 720.0));
+
     return Scaffold(
       body: Container(
         decoration: const BoxDecoration(
@@ -176,40 +208,50 @@ class _LoadingScreenState extends State<_LoadingScreen>
           ),
         ),
         child: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    constraints: const BoxConstraints(
-                      maxWidth: 340,
-                      maxHeight: 720,
-                    ),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(28),
-                      boxShadow: const [
-                        BoxShadow(
-                          color: Color(0x55000000),
-                          blurRadius: 36,
-                          offset: Offset(0, 18),
-                        ),
-                      ],
-                    ),
-                    clipBehavior: Clip.antiAlias,
-                    child: Image.asset(
-                      BrandAssets.loadingScreen,
-                      fit: BoxFit.contain,
-                      filterQuality: FilterQuality.high,
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              return SingleChildScrollView(
+                physics: const ClampingScrollPhysics(),
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                  child: Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Container(
+                            constraints: BoxConstraints(
+                              maxWidth: math.min(size.width - 48, 340),
+                              maxHeight: imageHeight,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(28),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: Color(0x55000000),
+                                  blurRadius: 36,
+                                  offset: Offset(0, 18),
+                                ),
+                              ],
+                            ),
+                            clipBehavior: Clip.antiAlias,
+                            child: Image.asset(
+                              BrandAssets.loadingScreen,
+                              fit: BoxFit.contain,
+                              filterQuality: FilterQuality.high,
+                            ),
+                          ),
+                          const SizedBox(height: 22),
+                          _AnimatedDots(controller: _controller),
+                        ],
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 22),
-                  _AnimatedDots(controller: _controller),
-                ],
-              ),
-            ),
+                ),
+              );
+            },
           ),
         ),
       ),

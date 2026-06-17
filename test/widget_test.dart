@@ -5,6 +5,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:clearate/app/app_scope.dart';
 import 'package:clearate/config/app_config.dart';
+import 'package:clearate/config/remote_flags.dart';
 import 'package:clearate/main.dart';
 import 'package:clearate/services/rates_cache.dart';
 import 'package:clearate/services/rates_client.dart';
@@ -33,13 +34,19 @@ void main() {
     final prefs = await SharedPreferences.getInstance();
     final cache = RatesCache(prefs);
     final client = RatesClient();
-    final ratesController = RatesController(cache: cache, client: client, config: config);
+    final ratesController = RatesController(
+      cache: cache,
+      client: client,
+      config: config,
+    );
+    final remoteFlagsController = RemoteFlagsController(prefs);
 
     // 3. Build our app and trigger a frame.
     await tester.pumpWidget(
       AppScope(
         config: config,
         ratesController: ratesController,
+        remoteFlagsController: remoteFlagsController,
         child: const ClearateApp(),
       ),
     );

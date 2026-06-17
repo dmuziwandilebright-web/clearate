@@ -19,7 +19,11 @@ class AnalyticsService {
     try {
       await FirebaseAnalytics.instance.logEvent(
         name: name,
-        parameters: parameters.map((key, value) => MapEntry(key, value as Object)),
+        parameters: Map<String, Object>.fromEntries(
+          parameters.entries
+              .where((entry) => entry.value != null)
+              .map((entry) => MapEntry(entry.key, entry.value as Object)),
+        ),
       );
     } catch (_) {
       // Keep analytics best-effort only.

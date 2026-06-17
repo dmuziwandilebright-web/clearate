@@ -1,12 +1,20 @@
+import 'dart:async';
+import 'dart:typed_data';
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../../app/app_scope.dart';
 import '../../domain/complaint_report.dart';
+import '../../domain/currency.dart';
 import '../../config/brand_assets.dart';
+import '../../services/analytics_service.dart';
 import '../../services/complaint_report_store.dart';
 import '../../services/update_checker.dart';
+import '../formatters.dart';
 import '../theme.dart';
 
 class MoreScreen extends StatefulWidget {
@@ -23,6 +31,7 @@ class _MoreScreenState extends State<MoreScreen> {
   @override
   void initState() {
     super.initState();
+    unawaited(AnalyticsService.logScreenView('more_screen'));
     _load();
   }
 
@@ -65,12 +74,30 @@ class _MoreScreenState extends State<MoreScreen> {
     }
   }
 
+  List<_SupportContact> _supportContactsFor(UpdateInfo? info) {
+    final numbers = (info?.supportContactNumbers.isNotEmpty ?? false)
+        ? info!.supportContactNumbers
+        : const <String>[];
+    return numbers.map((number) {
+      final digits = number.replaceAll(RegExp(r'[^0-9+]'), '');
+      return _SupportContact(
+        label: number,
+        uri: 'https://wa.me/${digits.replaceAll('+', '')}',
+      );
+    }).toList();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final releaseInfo = AppScope.of(context).releaseInfo ?? _update;
+    final supportContacts = _supportContactsFor(releaseInfo);
     final versionLabel = _pkg == null
         ? 'Checking version...'
         : 'Version ${_pkg!.version} (Build ${_pkg!.buildNumber})';
+    final tagline = releaseInfo?.tagline.isNotEmpty == true
+        ? releaseInfo!.tagline
+        : 'Financial Truth for Every Zimbabwean';
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 20, 16, 24),
@@ -103,7 +130,7 @@ class _MoreScreenState extends State<MoreScreen> {
               ),
               const SizedBox(height: 6),
               Text(
-                'Showing reference rates first, then live rates as soon as the device connects.',
+                tagline,
                 style: theme.textTheme.bodyMd.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
@@ -168,7 +195,11 @@ class _MoreScreenState extends State<MoreScreen> {
               icon: Icons.help_center_outlined,
               title: 'Support',
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const _SupportScreen()),
+                MaterialPageRoute(
+                  builder: (_) => _SupportScreen(
+                    supportContacts: supportContacts,
+                  ),
+                ),
               ),
             ),
           ],
@@ -180,7 +211,10 @@ class _MoreScreenState extends State<MoreScreen> {
               icon: Icons.info_outline,
               title: 'About',
               onTap: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const _AboutScreen()),
+                MaterialPageRoute(
+                  builder: (_) =>
+                      _AboutScreen(supportContacts: supportContacts),
+                ),
               ),
             ),
             _MenuItemData(
@@ -519,7 +553,9 @@ class _UpdateBanner extends StatelessWidget {
 }
 
 class _AboutScreen extends StatelessWidget {
-  const _AboutScreen();
+  const _AboutScreen({required this.supportContacts});
+
+  final List<_SupportContact> supportContacts;
 
   @override
   Widget build(BuildContext context) {
@@ -636,12 +672,14 @@ class _AboutScreen extends StatelessWidget {
           SizedBox(
             height: 48,
             child: FilledButton.icon(
-              onPressed: () async {
-                await launchUrl(
-                  Uri.parse('https://wa.me/263780464255'),
-                  mode: LaunchMode.externalApplication,
-                );
-              },
+              onPressed: supportContacts.isEmpty
+                  ? null
+                  : () async {
+                      await launchUrl(
+                        Uri.parse(supportContacts.first.uri),
+                        mode: LaunchMode.externalApplication,
+                      );
+                    },
               style: FilledButton.styleFrom(
                   backgroundColor: Colors.black, foregroundColor: Colors.white),
               icon: const Icon(Icons.share),
@@ -665,7 +703,9 @@ class _AboutScreen extends StatelessWidget {
 }
 
 class _SupportScreen extends StatelessWidget {
-  const _SupportScreen();
+  const _SupportScreen({required this.supportContacts});
+
+  final List<_SupportContact> supportContacts;
 
   @override
   Widget build(BuildContext context) {
@@ -770,20 +810,26 @@ class _SupportScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
                 Text(
-                  'Message us on WhatsApp with your question, a screenshot if relevant, and the phone model you are using. Use the first number for bug reports and the second as fallback if needed.',
+                  'Message us on WhatsApp with your question, a screenshot if relevant, and the phone model you are using.',
                   style: theme.textTheme.bodyMd
                       .copyWith(color: Colors.white.withOpacity(0.72)),
                 ),
                 const SizedBox(height: 18),
-                _WhatsAppRow(
-                  number: '+263 780 464 255',
-                  uri: Uri.parse('https://wa.me/263780464255'),
-                ),
-                const SizedBox(height: 10),
-                _WhatsAppRow(
-                  number: '+263 771 479 216',
-                  uri: Uri.parse('https://wa.me/263771479216'),
-                ),
+                if (supportContacts.isEmpty)
+                  Text(
+                    'Support contact numbers are unavailable right now.',
+                    style: theme.textTheme.bodyMd
+                        .copyWith(color: Colors.white.withOpacity(0.72)),
+                  )
+                else
+                  for (var i = 0; i < supportContacts.length; i++) ...[
+                    _WhatsAppRow(
+                      number: supportContacts[i].label,
+                      uri: Uri.parse(supportContacts[i].uri),
+                    ),
+                    if (i < supportContacts.length - 1)
+                      const SizedBox(height: 10),
+                  ],
               ],
             ),
           ),
@@ -850,13 +896,15 @@ class _SupportScreen extends StatelessWidget {
                 SizedBox(
                   width: double.infinity,
                   child: FilledButton.tonal(
-                    onPressed: () async {
-                      await launchUrl(
-                        Uri.parse(
-                            'https://wa.me/263780464255?text=${Uri.encodeComponent('Clearate bug report')}'),
-                        mode: LaunchMode.externalApplication,
-                      );
-                    },
+                    onPressed: supportContacts.isEmpty
+                        ? null
+                        : () async {
+                            await launchUrl(
+                              Uri.parse(
+                                  '${supportContacts.first.uri}?text=${Uri.encodeComponent('Clearate bug report')}'),
+                              mode: LaunchMode.externalApplication,
+                            );
+                          },
                     child: const Text('Report an Issue'),
                   ),
                 ),
@@ -1793,7 +1841,7 @@ class _MyReportsScreenState extends State<_MyReportsScreen> {
 
   Future<List<ComplaintReport>> _load() async {
     final store = await ComplaintReportStore.create();
-    return store.readAll();
+    return store.syncAndRead();
   }
 
   @override
@@ -1815,7 +1863,7 @@ class _MyReportsScreenState extends State<_MyReportsScreen> {
               child: Padding(
                 padding: const EdgeInsets.all(24),
                 child: Text(
-                  'No reports yet.\nYour submitted complaints will appear here.',
+                  'No reports yet. When you report an overcharge it will appear here with its reference number and status.',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyLg.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
@@ -1829,50 +1877,7 @@ class _MyReportsScreenState extends State<_MyReportsScreen> {
             itemCount: reports.length,
             separatorBuilder: (_, __) => const SizedBox(height: 12),
             itemBuilder: (context, index) {
-              final report = reports[index];
-              return Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerLowest,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(color: theme.colorScheme.outlineVariant),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      report.referenceNumber,
-                      style: theme.textTheme.headlineMd
-                          .copyWith(fontWeight: FontWeight.w800),
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '${report.verdict.toUpperCase()} · ${report.transactionType.uiLabel}',
-                      style: theme.textTheme.labelMd.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      'Town: ${report.town}',
-                      style: theme.textTheme.bodyMd,
-                    ),
-                    if ((report.businessName ?? '').isNotEmpty) ...[
-                      const SizedBox(height: 4),
-                      Text('Business: ${report.businessName}',
-                          style: theme.textTheme.bodyMd),
-                    ],
-                    const SizedBox(height: 4),
-                    Text(
-                      'Submitted: ${report.submittedAt}',
-                      style: theme.textTheme.bodyMd.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              );
+              return _ComplaintReportCard(report: reports[index]);
             },
           );
         },
@@ -1881,4 +1886,348 @@ class _MyReportsScreenState extends State<_MyReportsScreen> {
   }
 }
 
+class _ComplaintReportCard extends StatelessWidget {
+  const _ComplaintReportCard({required this.report});
+
+  final ComplaintReport report;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final status = _reportStatusMeta(report.status);
+    final verdict = _verdictMeta(report.verdict);
+    final submitted = DateFormat("EEEE d MMMM y 'at' HH:mm")
+        .format(report.submittedAt.toLocal());
+    final currency = _safeCurrency(report.toCurrency);
+
+    final differenceLabel = report.verdict == 'overcharged'
+        ? 'Overcharged by ${formatCurrencyAmount(currency, report.differenceAmount)}'
+        : report.verdict == 'undervalued'
+            ? 'Undercharged by ${formatCurrencyAmount(currency, report.differenceAmount)}'
+            : 'Within fair range';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(18),
+        child: ExpansionTile(
+          tilePadding: const EdgeInsets.fromLTRB(16, 14, 12, 12),
+          childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          title: Text(
+            report.referenceNumber,
+            style: theme.textTheme.headlineMd.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                _Badge(
+                  text: status.label,
+                  background: status.background,
+                  foreground: status.foreground,
+                ),
+                _Badge(
+                  text: verdict.label,
+                  background: verdict.background,
+                  foreground: verdict.foreground,
+                ),
+              ],
+            ),
+          ),
+          children: [
+            _ReportDetailRow(label: 'Date submitted', value: submitted),
+            _ReportDetailRow(label: 'Town', value: report.town),
+            _ReportDetailRow(label: 'Verdict amount', value: differenceLabel),
+            if ((report.businessName ?? '').isNotEmpty)
+              _ReportDetailRow(
+                label: 'Business name',
+                value: report.businessName!,
+              ),
+            if ((report.itemName ?? '').isNotEmpty)
+              _ReportDetailRow(label: 'Item name', value: report.itemName!),
+            if ((report.exchangeLocationType ?? '').isNotEmpty)
+              _ReportDetailRow(
+                label: 'Exchange type',
+                value: report.exchangeLocationType!,
+              ),
+            if (report.resolutionNote != null &&
+                report.resolutionNote!.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Text(
+                  report.resolutionNote!,
+                  style: theme.textTheme.bodyMd.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+            if (report.witnessConsent) ...[
+              const SizedBox(height: 10),
+              Text(
+                'Witness contact',
+                style: theme.textTheme.labelMd.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              Text(
+                'I am willing to be contacted as a witness if needed',
+                style: theme.textTheme.bodyMd.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+              if ((report.witnessPhone ?? '').isNotEmpty)
+                Text(
+                  report.witnessPhone!,
+                  style: theme.textTheme.bodyMd.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+            ],
+            if (report.verdictCardBase64.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              Text(
+                'Verdict card',
+                style: theme.textTheme.labelMd.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const SizedBox(height: 8),
+              _ComplaintCardImage(base64Data: report.verdictCardBase64),
+            ],
+            const SizedBox(height: 8),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Text(
+                status.footerLabel,
+                style: theme.textTheme.labelMd.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+Currency _safeCurrency(String code) {
+  try {
+    return Currency.fromCode(code);
+  } catch (_) {
+    return Currency.zar;
+  }
+}
+
+class _ComplaintCardImage extends StatelessWidget {
+  const _ComplaintCardImage({required this.base64Data});
+
+  final String base64Data;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    Uint8List? bytes;
+    try {
+      bytes = base64Decode(base64Data);
+    } catch (_) {
+      bytes = null;
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(14),
+      child: Container(
+        width: double.infinity,
+        height: 220,
+        color: theme.colorScheme.surfaceContainerLow,
+        child: bytes == null
+            ? Center(
+                child: Text(
+                  'Image unavailable offline',
+                  style: theme.textTheme.bodyMd.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              )
+            : Image.memory(
+                bytes,
+                fit: BoxFit.cover,
+                errorBuilder: (_, __, ___) => Center(
+                  child: Text(
+                    'Image unavailable offline',
+                    style: theme.textTheme.bodyMd.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              ),
+      ),
+    );
+  }
+}
+
+class _ReportDetailRow extends StatelessWidget {
+  const _ReportDetailRow({
+    required this.label,
+    required this.value,
+  });
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            child: Text(
+              label,
+              style: theme.textTheme.labelMd.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 2,
+            child: Text(
+              value,
+              textAlign: TextAlign.right,
+              style: theme.textTheme.bodyMd.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BadgeStyle {
+  const _BadgeStyle({
+    required this.label,
+    required this.background,
+    required this.foreground,
+    required this.footerLabel,
+  });
+
+  final String label;
+  final Color background;
+  final Color foreground;
+  final String footerLabel;
+}
+
+_BadgeStyle _reportStatusMeta(String raw) {
+  final status = raw.trim().toLowerCase();
+  if (status == 'resolved' || status == 'case closed' || status == 'closed') {
+    return const _BadgeStyle(
+      label: 'Case Closed',
+      background: Color(0xFFE1F6E8),
+      foreground: Color(0xFF166534),
+      footerLabel: 'Status: case closed',
+    );
+  }
+  if (status == 'under review' || status == 'under_review') {
+    return const _BadgeStyle(
+      label: 'Under Review',
+      background: Color(0xFFFFF0C2),
+      foreground: Color(0xFF8A5A00),
+      footerLabel: 'Status last updated recently',
+    );
+  }
+  return const _BadgeStyle(
+    label: 'Submitted',
+    background: Color(0xFFE5E7EB),
+    foreground: Color(0xFF4B5563),
+    footerLabel: 'Complaint received',
+  );
+}
+
+_BadgeStyle _verdictMeta(String raw) {
+  final verdict = raw.trim().toLowerCase();
+  if (verdict == 'undervalued') {
+    return const _BadgeStyle(
+      label: 'UNDERVALUED',
+      background: Color(0xFFFFF0C2),
+      foreground: Color(0xFF8A5A00),
+      footerLabel: '',
+    );
+  }
+  if (verdict == 'overcharged') {
+    return const _BadgeStyle(
+      label: 'OVERCHARGED',
+      background: Color(0xFFFFE4E4),
+      foreground: Color(0xFFB42318),
+      footerLabel: '',
+    );
+  }
+  return const _BadgeStyle(
+    label: 'FAIR',
+    background: Color(0xFFE1F6E8),
+    foreground: Color(0xFF166534),
+    footerLabel: '',
+  );
+}
+
+class _Badge extends StatelessWidget {
+  const _Badge({
+    required this.text,
+    required this.background,
+    required this.foreground,
+  });
+
+  final String text;
+  final Color background;
+  final Color foreground;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelMd.copyWith(
+              color: foreground,
+              fontWeight: FontWeight.w800,
+            ),
+      ),
+    );
+  }
+}
+
 void _noop() {}
+
+class _SupportContact {
+  const _SupportContact({
+    required this.label,
+    required this.uri,
+  });
+
+  final String label;
+  final String uri;
+}
