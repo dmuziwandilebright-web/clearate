@@ -788,7 +788,7 @@
             Clearate helps you check fair prices, compare official and market rates, convert currencies, and share trusted financial information even when the network is weak.
           </p>
           <div class="hero-actions">
-            <a class="button button-primary" href="./app-release.apk" download aria-label="Download Clearate Android APK">
+            <a class="button button-primary" id="download-link-hero" href="./clearate-v1.0.0.apk" download aria-label="Download Clearate Android APK">
               📱 Download for Android
             </a>
             <a class="button button-secondary" href="#features">Explore features</a>
@@ -886,7 +886,7 @@
               Download the APK and start checking rates, validating prices, converting currencies, and sharing trusted information today.
             </p>
           </div>
-          <a class="button button-primary" href="./app-release.apk" download aria-label="Download Clearate Android APK">
+          <a class="button button-primary" id="download-link-hero" href="./clearate-v1.0.0.apk" download aria-label="Download Clearate Android APK">
             📱 Download for Android
           </a>
         </div>
@@ -912,5 +912,22 @@
       </div>
     </div>
   </footer>
+<script>
+  fetch('./version.json')
+    .then(response => {
+      if (!response.ok) throw new Error('version.json fetch failed');
+      return response.json();
+    })
+    .then(data => {
+      if (!data.apk_url) return;
+      const heroLink = document.getElementById('download-link-hero');
+      const footerLink = document.getElementById('download-link-footer');
+      if (heroLink) heroLink.href = data.apk_url;
+      if (footerLink) footerLink.href = data.apk_url;
+    })
+    .catch(err => {
+      console.warn('Could not load version.json, using fallback download link:', err);
+    });
+</script>
 </body>
 </html>
