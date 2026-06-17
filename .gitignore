@@ -119,3 +119,10 @@ app.*.symbols
 !/dev/ci/**/Gemfile.lock
 
 **/google-services.json
+
+# wrangler files
+.wrangler
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example
