@@ -751,6 +751,100 @@
         animation-iteration-count: 1 !important;
       }
     }
+
+    .install-guide {
+  margin-top: 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--surface);
+  overflow: hidden;
+}
+
+.install-guide summary {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 20px;
+  cursor: pointer;
+  font-weight: 800;
+  font-size: 1rem;
+  color: var(--navy);
+  list-style: none;
+}
+
+.install-guide summary::-webkit-details-marker {
+  display: none;
+}
+
+.install-guide summary::after {
+  content: '+';
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--green);
+  transition: transform 0.2s ease;
+}
+
+.install-guide[open] summary::after {
+  transform: rotate(45deg);
+}
+
+.install-guide-body {
+  padding: 4px 20px 24px;
+  border-top: 1px solid var(--line);
+}
+
+.install-step {
+  display: flex;
+  gap: 14px;
+  padding: 16px 0;
+  border-bottom: 1px solid var(--line);
+}
+
+.install-step:last-of-type {
+  border-bottom: 0;
+}
+
+.install-step-number {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border-radius: 999px;
+  background: var(--green);
+  color: #FFFFFF;
+  font-weight: 800;
+  font-size: 0.9rem;
+}
+
+.install-step-text h4 {
+  margin: 0 0 4px;
+  color: var(--primary);
+  font-size: 0.98rem;
+}
+
+.install-step-text p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.install-note {
+  margin-top: 18px;
+  padding: 14px 16px;
+  border-radius: var(--radius-md);
+  background: rgba(27, 94, 32, 0.08);
+  border: 1px solid rgba(27, 94, 32, 0.18);
+  color: var(--text);
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.install-note strong {
+  color: var(--green);
+}
   </style>
 </head>
 <body>
@@ -889,6 +983,48 @@
           <a class="button button-primary" id="download-link-hero" href="./clearate-v1.0.0.apk" download aria-label="Download Clearate Android APK">
             📱 Download for Android
           </a>
+          <details class="install-guide">
+            <summary>How to install the APK (takes about 30 seconds)</summary>
+            <div class="install-guide-body">
+
+              <div class="install-step">
+                <span class="install-step-number">1</span>
+                <div class="install-step-text">
+                  <h4>Tap the downloaded file</h4>
+                  <p>After downloading, tap the notification that appears, or open your phone's <strong>Downloads or Files(go to Downloads) </strong> app and tap <strong>clearate-v1.0.0.apk</strong>.</p>
+                </div>
+              </div>
+
+              <div class="install-step">
+                <span class="install-step-number">2</span>
+                <div class="install-step-text">
+                  <h4>If you see a "blocked" or "unknown source" warning, this is normal</h4>
+                  <p>Android shows this for any app installed outside the Play Store, including ours. Tap <strong>Settings</strong> on that warning, then turn on <strong>Allow from this source</strong>. This is a one-time step.</p>
+                </div>
+              </div>
+
+              <div class="install-step">
+                <span class="install-step-number">3</span>
+                <div class="install-step-text">
+                  <h4>Go back and tap the file again</h4>
+                  <p>After allowing the source, return to the Downloads app and tap the APK file one more time to continue.</p>
+                </div>
+              </div>
+
+              <div class="install-step">
+                <span class="install-step-number">4</span>
+                <div class="install-step-text">
+                  <h4>Tap "Install"</h4>
+                  <p>You'll see a screen listing what the app can access. Tap <strong>Install</strong>, wait a few seconds, then tap <strong>Open</strong>.</p>
+                </div>
+              </div>
+
+              <div class="install-note">
+                <strong>Seeing "Play Protect can't verify this app"?</strong> This happens because Clearate isn't listed on the Play Store yet. Tap <strong>Install anyway</strong> or <strong>More details → Install anyway</strong> to continue safely.
+              </div>
+
+            </div>
+          </details>
         </div>
       </div>
     </section>
